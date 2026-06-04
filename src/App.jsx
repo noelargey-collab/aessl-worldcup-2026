@@ -135,12 +135,6 @@ const THIRD_CLUSTERS = {
   B: ['A','C','D','F','G','J','K','L'],
 };
 
-function get3rd(winnerGrp, best8) {
-  const cluster = THIRD_CLUSTERS[winnerGrp] || [];
-  for(const t of best8) if(cluster.includes(t.group)) return t.team;
-  return `Best 3rd (${winnerGrp})`;
-}
-
 function buildR32(scores) {
   const q={};
   Object.keys(GROUPS).forEach(g=>{
@@ -149,6 +143,25 @@ function buildR32(scores) {
     q[`${g}2`]=st[1]?.team||`2nd ${g}`;
   });
   const b8=getBest8Thirds(scores);
+  // Assign each best 3rd to the correct group winner slot without duplication
+  // Each 3rd place team can only be assigned once
+  const used = new Set();
+
+  function get3rd(winnerGrp) {
+    const cluster = THIRD_CLUSTERS[winnerGrp] || [];
+    for(const t of b8) {
+      if(cluster.includes(t.group) && !used.has(t.team)) {
+        used.add(t.team);
+        return t.team;
+      }
+    }
+    // Fallback: first unused 3rd
+    for(const t of b8) {
+      if(!used.has(t.team)) { used.add(t.team); return t.team; }
+    }
+    return `Best 3rd (${winnerGrp})`;
+  }
+
   return [
     // Fixed runner-up vs runner-up matchups (official FIFA 2026)
     {id:'r32-1', home:q.A2, away:q.B2},
@@ -159,15 +172,15 @@ function buildR32(scores) {
     {id:'r32-6', home:q.J1, away:q.H2},
     {id:'r32-7', home:q.B1, away:q.L2},
     {id:'r32-8', home:q.K1, away:q.G2},
-    // Variable winner vs best 3rd matchups
-    {id:'r32-9',  home:q.A1, away:get3rd('A',b8)},
-    {id:'r32-10', home:q.E1, away:get3rd('E',b8)},
-    {id:'r32-11', home:q.I1, away:get3rd('I',b8)},
-    {id:'r32-12', home:q.L1, away:get3rd('L',b8)},
-    {id:'r32-13', home:q.G1, away:get3rd('G',b8)},
-    {id:'r32-14', home:q.D1, away:get3rd('D',b8)},
-    {id:'r32-15', home:q.K1, away:get3rd('K',b8)},
-    {id:'r32-16', home:q.B1, away:get3rd('B',b8)},
+    // Variable winner vs best 3rd (each 3rd used only once)
+    {id:'r32-9',  home:q.A1, away:get3rd('A')},
+    {id:'r32-10', home:q.E1, away:get3rd('E')},
+    {id:'r32-11', home:q.I1, away:get3rd('I')},
+    {id:'r32-12', home:q.L1, away:get3rd('L')},
+    {id:'r32-13', home:q.G1, away:get3rd('G')},
+    {id:'r32-14', home:q.D1, away:get3rd('D')},
+    {id:'r32-15', home:q.K1, away:get3rd('K')},
+    {id:'r32-16', home:q.B1, away:get3rd('B')},
   ];
 }
 
