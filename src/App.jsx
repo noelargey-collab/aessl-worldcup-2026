@@ -415,7 +415,7 @@ function PredictionsView({user}){
   const [saving,setSaving]=useState(false);
   const [saved,setSaved]=useState(false);
   const [loading,setLoading]=useState(true);
-  const EMPTY={groupScores:{},knockout:{r32:{},r16:{},qf:{},sf:{},final:{}},thirds8:[],champion:null,championOther:"",topScorer:null,topScorerOther:"",darkHorse:null};
+  const EMPTY={groupScores:{},knockout:{r32:{},r16:{},qf:{},sf:{},final:{}},champion:null,championOther:"",topScorer:null,topScorerOther:"",darkHorse:null};
 
   useEffect(()=>{fbGetPronos(user.id).then(data=>{setP(data||EMPTY);setLoading(false);});},[ user.id]);
   const upd=fn=>setP(prev=>{const n=JSON.parse(JSON.stringify(prev));fn(n);return n;});
@@ -431,12 +431,15 @@ function PredictionsView({user}){
 
   const groupsDone=allGroupsFilled(p.groupScores);
   const groupsPct=getGroupPct(p.groupScores);
-  const thirds8 = p.thirds8 || [];
-  const thirds8Done = thirds8.length === 8;
-  const step1Done = groupsDone && thirds8Done;
+  const step1Done = groupsDone;
 
   const getKO=id=>{for(const r of ["r32","r16","qf","sf","final"]) if(p.knockout?.[r]?.[id]) return p.knockout[r][id];return null;};
-  const r32=buildR32(p.groupScores, p.thirds8||[]);
+  // Auto-calculate best 8 thirds from group scores
+  const autoThirds8 = Object.keys(GROUPS).map(g=>{
+    const st=computeStandings(g,p.groupScores);
+    return st[2]?{group:g,team:st[2].team,pts:st[2].pts,gd:st[2].gd,gf:st[2].gf}:null;
+  }).filter(Boolean).sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf).slice(0,8);
+  const r32=buildR32(p.groupScores, autoThirds8);
   // Official FIFA 2026 bracket paths (source: USA Today, Sky Sports, official schedule)
   // R32 match IDs map to official match numbers:
   // r32-1=M73, r32-2=M74, r32-3=M75, r32-4=M76, r32-5=M77, r32-6=M78
@@ -689,71 +692,15 @@ function PredictionsView({user}){
             );
           })()}
 
-          {/* 3rd place selector */}
-          <div style={{marginBottom:20,padding:20,background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.25)",borderRadius:14}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-              <div>
-                <div style={{fontFamily:"Anton,sans-serif",fontSize:17,letterSpacing:2,color:"var(--azure)"}}>🔵 SELECT THE 8 BEST 3RD-PLACE TEAMS</div>
-                <div style={{fontSize:11,color:"var(--muted)",marginTop:3}}>Pick exactly 8 out of 12 · They face group winners in the R32</div>
-              </div>
-              <div style={{textAlign:"center"}}>
-                <div style={{fontFamily:"Anton,sans-serif",fontSize:28,color:thirds8Done?"var(--green)":"#ff8c42"}}>{thirds8.length}/8</div>
-                <div style={{fontSize:10,color:"var(--muted)"}}>SELECTED</div>
-              </div>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
-              {Object.keys(GROUPS).map(g => {
-                const st = computeStandings(g, p.groupScores);
-                const third = st[2];
-                const isSelected = thirds8.some(t => t.group === g);
-                const canSelect = thirds8.length < 8 || isSelected;
-                if (!third) return (
-                  <div key={g} style={{padding:"12px",background:"rgba(255,255,255,.03)",borderRadius:8,border:"1px solid rgba(255,255,255,.06)",opacity:.5}}>
-                    <div style={{fontSize:10,color:"var(--muted)",marginBottom:4}}>GROUP {g}</div>
-                    <div style={{fontSize:11,color:"#555"}}>Fill scores first</div>
-                  </div>
-                );
-                return (
-                  <div key={g} onClick={() => {
-                    if (isLocked()) return;
-                    upd(pr => {
-                      pr.thirds8 = pr.thirds8 || [];
-                      if (isSelected) pr.thirds8 = pr.thirds8.filter(t => t.group !== g);
-                      else if (pr.thirds8.length < 8) pr.thirds8.push({group:g, team:third.team, pts:third.pts, gd:third.gd, gf:third.gf});
-                    });
-                  }} style={{
-                    padding:"12px 14px", borderRadius:10, cursor:(isLocked()||(!canSelect&&!isSelected))?"default":"pointer",
-                    background:isSelected?"rgba(57,255,20,.15)":"rgba(255,255,255,.04)",
-                    border:isSelected?"1px solid var(--green)":"1px solid rgba(65,161,231,.15)",
-                    opacity:(!canSelect&&!isSelected)?.4:1, transition:"all .15s"
-                  }}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                      <span style={{fontSize:10,letterSpacing:1,color:isSelected?"var(--green)":"var(--muted)",fontWeight:700}}>GRP {g}</span>
-                      {isSelected && <span>✅</span>}
-                    </div>
-                    <div style={{fontSize:12,color:isSelected?"var(--green)":"var(--text)",fontWeight:isSelected?700:400,marginBottom:5}}>{third.team}</div>
-                    <div style={{display:"flex",gap:6}}>
-                      <span style={{fontSize:10,background:"rgba(255,255,255,.08)",padding:"2px 6px",borderRadius:4,color:"var(--muted)"}}>{third.pts}pts</span>
-                      <span style={{fontSize:10,background:"rgba(255,255,255,.08)",padding:"2px 6px",borderRadius:4,color:third.gd>=0?"var(--green)":"#ff6b6b"}}>{third.gd>=0?"+":""}{third.gd}GD</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Validate button */}
           <div style={{textAlign:"center",padding:"20px 0"}}>
             {!groupsDone&&(
               <div style={{marginBottom:12,fontSize:13,color:"#ffb800"}}>⚠️ Complete all group scores first ({groupsPct}% done)</div>
             )}
-            {groupsDone && !thirds8Done && (
-              <div style={{marginBottom:12,fontSize:13,color:"#ffb800"}}>⚠️ Select {8-thirds8.length} more 3rd-place team{8-thirds8.length>1?"s":""}</div>
-            )}
 
             <button onClick={()=>{if(step1Done){save();setStep(2);}}} disabled={!step1Done||isLocked()}
               style={{padding:"14px 48px",background:step1Done?"linear-gradient(135deg,var(--blue),var(--azure))":"rgba(255,255,255,.1)",border:"none",borderRadius:10,color:step1Done?"#fff":"rgba(255,255,255,.3)",fontWeight:700,fontSize:16,cursor:step1Done&&!isLocked()?"pointer":"not-allowed",letterSpacing:1,transition:"all .3s",boxShadow:step1Done?"0 4px 20px rgba(65,161,231,.3)":"none"}}>
-              {!groupsDone?`Complete groups first (${groupsPct}%)`:!thirds8Done?`Select ${8-thirds8.length} more 3rd(s)`:"✅ VALIDATE & CONTINUE →"}
+              {groupsDone?"✅ VALIDATE & CONTINUE →":`Complete all group scores (${groupsPct}%)`}
             </button>
           </div>
         </div>
