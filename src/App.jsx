@@ -392,8 +392,8 @@ function Leaderboard({uid,results}){
 
 // ─── PREDICTIONS VIEW ─────────────────────────────────────────────────────────
 function PredictionsView({user}){
+  const [step,setStep]=useState(1); // 1=groups+3rds, 2=bracket, 3=bonus
   const [p,setP]=useState(null);
-  const [tab,setTab]=useState("groups");
   const [grp,setGrp]=useState("A");
   const [saving,setSaving]=useState(false);
   const [saved,setSaved]=useState(false);
@@ -402,15 +402,24 @@ function PredictionsView({user}){
 
   useEffect(()=>{fbGetPronos(user.id).then(data=>{setP(data||EMPTY);setLoading(false);});},[ user.id]);
   const upd=fn=>setP(prev=>{const n=JSON.parse(JSON.stringify(prev));fn(n);return n;});
-  const save=async()=>{if(isLocked())return;setSaving(true);await fbSetPronos(user.id,{...p,savedAt:Date.now()});setSaving(false);setSaved(true);setTimeout(()=>setSaved(false),2500);};
+  const save=async()=>{
+    if(isLocked()) return;
+    setSaving(true);
+    await fbSetPronos(user.id,{...p,savedAt:Date.now()});
+    setSaving(false);setSaved(true);
+    setTimeout(()=>setSaved(false),2500);
+  };
 
   if(loading) return <Spinner/>;
 
   const groupsDone=allGroupsFilled(p.groupScores);
   const groupsPct=getGroupPct(p.groupScores);
+  const thirds8=(p.thirds8||[]);
+  const thirds8Done=thirds8.length===8;
+  const step1Done=groupsDone&&thirds8Done;
 
   const getKO=id=>{for(const r of ["r32","r16","qf","sf","final"]) if(p.knockout?.[r]?.[id]) return p.knockout[r][id];return null;};
-  const r32=buildR32(p.groupScores, p.thirds8||[]);
+  const r32=buildR32(p.groupScores, thirds8);
   const r16=[["r32-1","r32-2"],["r32-3","r32-4"],["r32-5","r32-6"],["r32-7","r32-8"],["r32-9","r32-10"],["r32-11","r32-12"],["r32-13","r32-14"],["r32-15","r32-16"]].map(([a,b],i)=>({id:`r16-${i+1}`,home:getKO(a)||"?",away:getKO(b)||"?"}));
   const qf=[["r16-1","r16-2"],["r16-3","r16-4"],["r16-5","r16-6"],["r16-7","r16-8"]].map(([a,b],i)=>({id:`qf-${i+1}`,home:getKO(a)||"?",away:getKO(b)||"?"}));
   const sf=[["qf-1","qf-2"],["qf-3","qf-4"]].map(([a,b],i)=>({id:`sf-${i+1}`,home:getKO(a)||"?",away:getKO(b)||"?"}));
@@ -423,9 +432,9 @@ function PredictionsView({user}){
     return(
       <div style={{background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.15)",borderRadius:10,overflow:"hidden"}}>
         {[match.home,match.away].map((team,idx)=>{
-          const isW=picked===team,isQ=team!=="?"&&!isLocked();
+          const isW=picked===team,isQ=team!=="?"&&team!=="3rd TBD"&&team!=="3rd place TBD"&&!isLocked();
           return(<div key={idx} className={isQ?"ph":""} onClick={()=>isQ&&setKO(match.id,team,round)}
-            style={{padding:"9px 14px",display:"flex",alignItems:"center",gap:8,background:isW?"rgba(57,255,20,.12)":"transparent",borderBottom:idx===0?"1px solid rgba(255,255,255,.06)":"none",cursor:isQ?"pointer":"default",opacity:team==="?"?.3:1,transition:"background .15s"}}>
+            style={{padding:"9px 14px",display:"flex",alignItems:"center",gap:8,background:isW?"rgba(57,255,20,.12)":"transparent",borderBottom:idx===0?"1px solid rgba(255,255,255,.06)":"none",cursor:isQ?"pointer":"default",opacity:(team==="?"||team==="3rd TBD")?.3:1,transition:"background .15s"}}>
             <span style={{fontSize:10,width:14}}>{isW?"✅":""}</span>
             <span style={{fontSize:12,color:isW?"var(--green)":"var(--text)",fontWeight:isW?700:400,flex:1}}>{team}</span>
           </div>);
@@ -464,12 +473,19 @@ function PredictionsView({user}){
   );
 
   const filledG=GROUP_MATCHES.filter(m=>{const s=p.groupScores?.[m.id];return s&&s.h!=null&&s.a!=null;}).length;
-  const progress=Math.round(((filledG+(p.champion?1:0)+(p.topScorer?1:0)+(p.darkHorse?1:0))/(GROUP_MATCHES.length+3))*100);
+  const progress=Math.round(((filledG+(p.champion?1:0)+(p.topScorer?1:0)+(p.darkHorse?1:0)+(thirds8Done?1:0))/(GROUP_MATCHES.length+4))*100);
+
+  // Step indicator
+  const steps=[{n:1,l:"Groups & 3rd place"},{n:2,l:"Knockout"},{n:3,l:"Bonus"}];
 
   return(
     <div>
+      {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:12}}>
-        <STitle icon="📝" title="MY PREDICTIONS" sub="Deadline: June 11, 2026 at 6:00 PM Swiss time"/>
+        <div>
+          <div style={{fontFamily:"Anton,sans-serif",fontSize:22,letterSpacing:3,color:"var(--azure)",display:"flex",alignItems:"center",gap:8}}>📝 MY PREDICTIONS</div>
+          <div style={{fontSize:12,color:"var(--muted)",marginTop:4}}>Deadline: June 11, 2026 at 6:00 PM Swiss time</div>
+        </div>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <div>
             <div style={{fontSize:10,color:"var(--muted)",letterSpacing:1,marginBottom:3}}>COMPLETION</div>
@@ -487,10 +503,11 @@ function PredictionsView({user}){
         </div>
       </div>
 
+      {/* Lock / countdown banner */}
       {isLocked()?(
         <div style={{marginBottom:16,padding:"14px 18px",background:"rgba(255,80,80,.1)",border:"1px solid rgba(255,80,80,.3)",borderRadius:10,display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontSize:20}}>🔒</span>
-          <div><div style={{fontWeight:700,color:"#ff8888",fontSize:14}}>Predictions locked</div><div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>The competition has started — predictions can no longer be modified.</div></div>
+          <div><div style={{fontWeight:700,color:"#ff8888",fontSize:14}}>Predictions locked</div><div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>The competition has started.</div></div>
         </div>
       ):timeLeft()&&(
         <div style={{marginBottom:16,padding:"12px 16px",background:"rgba(57,255,20,.06)",border:"1px solid rgba(57,255,20,.2)",borderRadius:10,display:"flex",alignItems:"center",gap:10}}>
@@ -499,15 +516,29 @@ function PredictionsView({user}){
         </div>
       )}
 
-      <div style={{display:"flex",gap:4,marginBottom:20,background:"rgba(0,0,0,.3)",borderRadius:10,padding:4}}>
-        {[{id:"groups",l:"⚽ Groups"},{id:"bracket",l:"🏆 Knockout"},{id:"bonus",l:"🎯 Bonus"}].map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id)}
-            style={{flex:1,padding:"9px 0",border:"none",borderRadius:7,background:tab===t.id?"linear-gradient(135deg,var(--blue),var(--azure))":"transparent",color:"#fff",fontWeight:600,opacity:tab===t.id?1:.5,transition:"all .2s"}}>{t.l}</button>
-        ))}
+      {/* Step indicator */}
+      <div style={{display:"flex",gap:0,marginBottom:24,background:"rgba(0,0,0,.3)",borderRadius:12,overflow:"hidden"}}>
+        {steps.map((s,i)=>{
+          const done=(s.n===1&&step1Done)||(s.n===2&&step>=2)||(s.n===3&&step>=3);
+          const active=step===s.n;
+          return(
+            <button key={s.n} onClick={()=>{if(s.n===1||step1Done) setStep(s.n);}}
+              style={{flex:1,padding:"12px 8px",border:"none",borderRight:i<2?"1px solid rgba(255,255,255,.08)":"none",
+                background:active?"linear-gradient(135deg,var(--blue),var(--azure))":"transparent",
+                color:active?"#fff":done?"var(--green)":"var(--muted)",fontWeight:600,fontSize:13,
+                cursor:(s.n===1||step1Done)?"pointer":"not-allowed",transition:"all .2s",
+                opacity:(s.n>1&&!step1Done&&!active)?.4:1}}>
+              <span style={{marginRight:6}}>{done&&!active?"✅":s.n===1?"⚽":s.n===2?"🏆":"🎯"}</span>
+              {s.n===1?"Groups & 3rds":s.n===2?"Knockout":"Bonus"}
+            </button>
+          );
+        })}
       </div>
 
-      {tab==="groups"&&(
+      {/* ═══ STEP 1: GROUPS + 3RD PLACE SELECTION ═══ */}
+      {step===1&&(
         <div>
+          {/* Group selector */}
           <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
             {Object.keys(GROUPS).map(g=>{
               const filled=GROUP_MATCHES.filter(m=>m.group===g&&p.groupScores?.[m.id]?.h!=null).length;
@@ -518,7 +549,9 @@ function PredictionsView({user}){
               </button>);
             })}
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+
+          {/* Matches + standings */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:24}}>
             <div>
               <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:"var(--azure)",marginBottom:10}}>MATCHES — GROUP {grp}</div>
               {GROUP_MATCHES.filter(m=>m.group===grp).map(m=>{
@@ -551,39 +584,26 @@ function PredictionsView({user}){
               <div style={{marginTop:8,fontSize:11,color:"var(--muted)"}}>🥇🥈 Auto qualified · 🔵 Possible best 3rd</div>
             </div>
           </div>
-        </div>
-      )}
-
-      {tab==="bracket"&&(
-        <div>
-          {!groupsDone&&(
-            <div style={{marginBottom:16,padding:"12px 16px",background:"rgba(255,180,0,.08)",border:"1px solid rgba(255,180,0,.25)",borderRadius:10,display:"flex",alignItems:"center",gap:10}}>
-              <span style={{fontSize:18}}>⚠️</span>
-              <div style={{fontSize:13,color:"#ffb800"}}><strong>Group stage {groupsPct}% complete.</strong><span style={{color:"var(--muted)",marginLeft:6}}>Fill in all group scores first for accurate bracket matchups.</span></div>
-            </div>
-          )}
-          <div style={{fontSize:12,color:"rgba(65,161,231,.7)",marginBottom:16,padding:"10px 14px",background:"rgba(65,161,231,.05)",borderRadius:8,border:"1px solid rgba(65,161,231,.15)"}}>
-            💡 Click the winning team to advance them. Select the 8 best 3rd-place teams below first.
-          </div>
 
           {/* 3rd place selector */}
-          <div style={{marginBottom:20,padding:16,background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.2)",borderRadius:12}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div style={{padding:20,background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.25)",borderRadius:14,marginBottom:20}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
               <div>
-                <div style={{fontFamily:"Anton,sans-serif",fontSize:15,letterSpacing:2,color:"var(--azure)"}}>🔵 SELECT THE 8 BEST 3RD-PLACE TEAMS</div>
-                <div style={{fontSize:11,color:"var(--muted)",marginTop:3}}>Based on your group predictions — pick exactly 8 out of 12</div>
+                <div style={{fontFamily:"Anton,sans-serif",fontSize:18,letterSpacing:2,color:"var(--azure)"}}>🔵 BEST 8 THIRD-PLACE TEAMS</div>
+                <div style={{fontSize:12,color:"var(--muted)",marginTop:4}}>Select exactly 8 out of 12 · Based on your group predictions</div>
               </div>
-              <div style={{fontFamily:"Anton,sans-serif",fontSize:20,color:(p.thirds8||[]).length===8?"var(--green)":"#ff8c42"}}>
-                {(p.thirds8||[]).length}/8
+              <div style={{textAlign:"center"}}>
+                <div style={{fontFamily:"Anton,sans-serif",fontSize:32,color:thirds8Done?"var(--green)":"#ff8c42"}}>{thirds8.length}/8</div>
+                <div style={{fontSize:10,color:"var(--muted)"}}>SELECTED</div>
               </div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
               {Object.keys(GROUPS).map(g=>{
                 const st=computeStandings(g,p.groupScores);
                 const third=st[2];
-                if(!third) return null;
-                const isSelected=(p.thirds8||[]).some(t=>t.group===g);
-                const canAdd=(p.thirds8||[]).length<8||isSelected;
+                if(!third) return <div key={g} style={{padding:"12px",background:"rgba(255,255,255,.03)",borderRadius:8,border:"1px solid rgba(255,255,255,.06)"}}><div style={{fontSize:10,color:"var(--muted)"}}>GR.{g}</div><div style={{fontSize:11,color:"#555",marginTop:4}}>Fill scores first</div></div>;
+                const isSelected=thirds8.some(t=>t.group===g);
+                const canSelect=thirds8.length<8||isSelected;
                 return(
                   <div key={g} onClick={()=>{
                     if(isLocked()) return;
@@ -593,18 +613,48 @@ function PredictionsView({user}){
                       else if(pr.thirds8.length<8) pr.thirds8.push({group:g,team:third.team});
                     });
                   }} style={{
-                    padding:"9px 12px",borderRadius:8,cursor:isLocked()||(!canAdd&&!isSelected)?"default":"pointer",
+                    padding:"12px 14px",borderRadius:10,
+                    cursor:(isLocked()||(!canSelect&&!isSelected))?"default":"pointer",
                     background:isSelected?"rgba(57,255,20,.15)":"rgba(255,255,255,.04)",
                     border:isSelected?"1px solid var(--green)":"1px solid rgba(65,161,231,.15)",
-                    opacity:(!canAdd&&!isSelected)?.4:1,transition:"all .15s"
+                    opacity:(!canSelect&&!isSelected)?.4:1,transition:"all .15s"
                   }}>
-                    <div style={{fontSize:10,color:isSelected?"var(--green)":"var(--muted)",letterSpacing:1,marginBottom:3}}>GR.{g} {isSelected?"✅":""}</div>
-                    <div style={{fontSize:12,color:isSelected?"var(--green)":"var(--text)",fontWeight:isSelected?700:400}}>{third.team}</div>
-                    <div style={{fontSize:10,color:"var(--muted)",marginTop:2}}>{third.pts}pts · {third.gd>0?"+":""}{third.gd} GD</div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                      <span style={{fontSize:10,letterSpacing:1,color:isSelected?"var(--green)":"var(--muted)",fontWeight:700}}>GROUP {g}</span>
+                      {isSelected&&<span style={{fontSize:14}}>✅</span>}
+                    </div>
+                    <div style={{fontSize:13,color:isSelected?"var(--green)":"var(--text)",fontWeight:isSelected?700:400,marginBottom:4}}>{third.team}</div>
+                    <div style={{display:"flex",gap:8}}>
+                      <span style={{fontSize:10,color:"var(--muted)",background:"rgba(255,255,255,.07)",padding:"2px 6px",borderRadius:4}}>{third.pts} pts</span>
+                      <span style={{fontSize:10,color:third.gd>=0?"var(--green)":"#ff6b6b",background:"rgba(255,255,255,.07)",padding:"2px 6px",borderRadius:4}}>{third.gd>0?"+":""}{third.gd} GD</span>
+                    </div>
                   </div>
                 );
               })}
             </div>
+          </div>
+
+          {/* Validate button */}
+          <div style={{textAlign:"center",padding:"20px 0"}}>
+            {!groupsDone&&(
+              <div style={{marginBottom:12,fontSize:13,color:"#ffb800"}}>⚠️ Complete all group scores first ({groupsPct}% done)</div>
+            )}
+            {groupsDone&&!thirds8Done&&(
+              <div style={{marginBottom:12,fontSize:13,color:"#ffb800"}}>⚠️ Select {8-thirds8.length} more 3rd-place team{8-thirds8.length>1?"s":""}</div>
+            )}
+            <button onClick={()=>{if(step1Done){save();setStep(2);}}} disabled={!step1Done||isLocked()}
+              style={{padding:"14px 48px",background:step1Done?"linear-gradient(135deg,var(--blue),var(--azure))":"rgba(255,255,255,.1)",border:"none",borderRadius:10,color:step1Done?"#fff":"rgba(255,255,255,.3)",fontWeight:700,fontSize:16,cursor:step1Done&&!isLocked()?"pointer":"not-allowed",letterSpacing:1,transition:"all .3s",boxShadow:step1Done?"0 4px 20px rgba(65,161,231,.3)":"none"}}>
+              {step1Done?"✅ VALIDATE & CONTINUE →":"COMPLETE GROUPS FIRST"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ STEP 2: KNOCKOUT BRACKET ═══ */}
+      {step===2&&(
+        <div>
+          <div style={{marginBottom:16,padding:"12px 16px",background:"rgba(65,161,231,.05)",border:"1px solid rgba(65,161,231,.15)",borderRadius:10,fontSize:12,color:"rgba(65,161,231,.8)"}}>
+            💡 Click the winning team to advance them to the next round.
           </div>
           {[{label:"ROUND OF 32",matches:r32,round:"r32",cols:4},{label:"ROUND OF 16",matches:r16,round:"r16",cols:4},{label:"QUARTER-FINALS",matches:qf,round:"qf",cols:2},{label:"SEMI-FINALS",matches:sf,round:"sf",cols:2},{label:"🏆 FINAL",matches:fin,round:"final",cols:1}].map(({label,matches,round,cols})=>(
             <div key={round} style={{marginBottom:24}}>
@@ -618,10 +668,17 @@ function PredictionsView({user}){
               </div>
             </div>
           ))}
+          <div style={{textAlign:"center",padding:"20px 0"}}>
+            <button onClick={()=>{save();setStep(3);}}
+              style={{padding:"14px 48px",background:"linear-gradient(135deg,var(--blue),var(--azure))",border:"none",borderRadius:10,color:"#fff",fontWeight:700,fontSize:16,cursor:"pointer",letterSpacing:1,boxShadow:"0 4px 20px rgba(65,161,231,.3)"}}>
+              CONTINUE TO BONUS →
+            </button>
+          </div>
         </div>
       )}
 
-      {tab==="bonus"&&(
+      {/* ═══ STEP 3: BONUS ═══ */}
+      {step===3&&(
         <div style={{display:"flex",flexDirection:"column",gap:20}}>
           <BonusCard icon="🏆" title="WORLD CHAMPION" sub="Which team will lift the trophy on July 19?" pts={POINTS.champion}>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
@@ -644,6 +701,12 @@ function PredictionsView({user}){
               {DARK_HORSE_TEAMS.map(t=><BonusOpt key={t} selected={p.darkHorse===t} onClick={()=>upd(pr=>{pr.darkHorse=t;})}>{t}</BonusOpt>)}
             </div>
           </BonusCard>
+          <div style={{textAlign:"center",padding:"10px 0"}}>
+            <button onClick={save} disabled={saving||isLocked()}
+              style={{padding:"14px 48px",background:saved?"#1a5c1a":"linear-gradient(135deg,var(--blue),var(--azure))",border:"none",borderRadius:10,color:"#fff",fontWeight:700,fontSize:16,cursor:isLocked()?"not-allowed":"pointer",letterSpacing:1}}>
+              {isLocked()?"🔒 LOCKED":saving?"...":saved?"✓ ALL SAVED !":"💾 SAVE ALL PREDICTIONS"}
+            </button>
+          </div>
         </div>
       )}
     </div>
