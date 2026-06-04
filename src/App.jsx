@@ -135,49 +135,70 @@ const THIRD_CLUSTERS = {
   B: ['A','C','D','F','G','J','K','L'],
 };
 
-function buildR32(scores) {
-  const q={};
-  Object.keys(GROUPS).forEach(g=>{
-    const st=computeStandings(g,scores);
-    q[`${g}1`]=st[0]?.team||`1st ${g}`;
-    q[`${g}2`]=st[1]?.team||`2nd ${g}`;
+// Official FIFA 2026 R32 structure (from official regulations + USA Today bracket)
+// thirds: array of {group, team} — the 8 manually selected best 3rd place teams
+function buildR32(scores, thirds) {
+  const q = {};
+  Object.keys(GROUPS).forEach(g => {
+    const st = computeStandings(g, scores);
+    q[`${g}1`] = st[0]?.team || `1st ${g}`;
+    q[`${g}2`] = st[1]?.team || `2nd ${g}`;
   });
 
-  // Get all 12 thirds, sort by pts > gd > gf, take best 8
-  const allThirds = Object.keys(GROUPS).map(g=>{
-    const st=computeStandings(g,scores);
-    return st[2] ? {...st[2], group:g} : null;
-  }).filter(Boolean).sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf);
-  const best8 = allThirds.slice(0,8);
+  // Official FIFA 2026 cluster assignments per group winner
+  // Source: USA Today official bracket / FIFA regulations
+  const CLUSTERS = {
+    A: ['C','E','F','H','I'],
+    E: ['A','B','C','D','F'],
+    I: ['C','D','F','G','H'],
+    L: ['E','H','I','J','K'],
+    D: ['B','E','F','I','J'],
+    G: ['A','E','H','I','J'],
+    K: ['D','E','I','J','L'],
+    B: ['A','C','D','F','G','J','K','L'], // gets last remaining 3rd
+  };
 
-  // Winners A,B,D,E,G,I,K,L each face one 3rd — no rematch with own group
-  const slots = ['A','B','D','E','G','I','K','L'];
+  // Assign 3rds to slots — use manual selection, respect no-rematch rule
   const assigned = {};
-  const usedGroups = new Set();
+  const used = new Set();
+  const slotOrder = ['A','E','I','L','D','G','K','B'];
 
-  slots.forEach(slot => {
-    const pick = best8.find(t => t.group !== slot && !usedGroups.has(t.group));
-    if (pick) { assigned[slot] = pick.team; usedGroups.add(pick.group); }
-    else { assigned[slot] = '3rd TBD'; }
-  });
+  if (thirds && thirds.length > 0) {
+    slotOrder.forEach(slot => {
+      const cluster = CLUSTERS[slot] || [];
+      // Find best 3rd (by order in thirds array) from cluster not yet used and not from own group
+      const pick = thirds.find(t => cluster.includes(t.group) && !used.has(t.group) && t.group !== slot);
+      if (pick) { assigned[slot] = pick.team; used.add(pick.group); }
+      else {
+        // fallback: any unused 3rd not from own group
+        const fallback = thirds.find(t => !used.has(t.group) && t.group !== slot);
+        if (fallback) { assigned[slot] = fallback.team; used.add(fallback.group); }
+        else assigned[slot] = '?';
+      }
+    });
+  } else {
+    slotOrder.forEach(slot => { assigned[slot] = '3rd TBD'; });
+  }
 
   return [
-    {id:'r32-1', home:q.A2, away:q.B2},
-    {id:'r32-2', home:q.C1, away:q.F2},
-    {id:'r32-3', home:q.F1, away:q.C2},
-    {id:'r32-4', home:q.E2, away:q.I2},
-    {id:'r32-5', home:q.H1, away:q.J2},
-    {id:'r32-6', home:q.J1, away:q.H2},
-    {id:'r32-7', home:q.B1, away:q.L2},
-    {id:'r32-8', home:q.K1, away:q.G2},
-    {id:'r32-9',  home:q.A1, away:assigned['A']},
-    {id:'r32-10', home:q.B1, away:assigned['B']},
-    {id:'r32-11', home:q.D1, away:assigned['D']},
-    {id:'r32-12', home:q.E1, away:assigned['E']},
-    {id:'r32-13', home:q.G1, away:assigned['G']},
-    {id:'r32-14', home:q.I1, away:assigned['I']},
-    {id:'r32-15', home:q.K1, away:assigned['K']},
-    {id:'r32-16', home:q.L1, away:assigned['L']},
+    // ── FIXED matchups (official FIFA 2026) ──
+    {id:'r32-1',  home:q.A2, away:q.B2,  label:'A2 vs B2'},
+    {id:'r32-2',  home:q.C1, away:q.F2,  label:'C1 vs F2'},
+    {id:'r32-3',  home:q.F1, away:q.C2,  label:'F1 vs C2'},
+    {id:'r32-4',  home:q.E2, away:q.I2,  label:'E2 vs I2'},
+    {id:'r32-5',  home:q.H1, away:q.J2,  label:'H1 vs J2'},
+    {id:'r32-6',  home:q.J1, away:q.H2,  label:'J1 vs H2'},
+    {id:'r32-7',  home:q.K2, away:q.L2,  label:'K2 vs L2'},
+    {id:'r32-8',  home:q.D2, away:q.G2,  label:'D2 vs G2'},
+    // ── VARIABLE matchups (group winner vs best 3rd) ──
+    {id:'r32-9',  home:q.E1, away:assigned.E, label:`E1 vs 3rd(A/B/C/D/F)`},
+    {id:'r32-10', home:q.I1, away:assigned.I, label:`I1 vs 3rd(C/D/F/G/H)`},
+    {id:'r32-11', home:q.A1, away:assigned.A, label:`A1 vs 3rd(C/E/F/H/I)`},
+    {id:'r32-12', home:q.L1, away:assigned.L, label:`L1 vs 3rd(E/H/I/J/K)`},
+    {id:'r32-13', home:q.D1, away:assigned.D, label:`D1 vs 3rd(B/E/F/I/J)`},
+    {id:'r32-14', home:q.G1, away:assigned.G, label:`G1 vs 3rd(A/E/H/I/J)`},
+    {id:'r32-15', home:q.K1, away:assigned.K, label:`K1 vs 3rd(D/E/I/J/L)`},
+    {id:'r32-16', home:q.B1, away:assigned.B, label:`B1 vs 3rd`},
   ];
 }
 
@@ -395,7 +416,7 @@ function PredictionsView({user}){
   const [saving,setSaving]=useState(false);
   const [saved,setSaved]=useState(false);
   const [loading,setLoading]=useState(true);
-  const EMPTY={groupScores:{},knockout:{r32:{},r16:{},qf:{},sf:{},final:{}},champion:null,championOther:"",topScorer:null,topScorerOther:"",darkHorse:null};
+  const EMPTY={groupScores:{},knockout:{r32:{},r16:{},qf:{},sf:{},final:{}},thirds8:[],champion:null,championOther:"",topScorer:null,topScorerOther:"",darkHorse:null};
 
   useEffect(()=>{fbGetPronos(user.id).then(data=>{setP(data||EMPTY);setLoading(false);});},[ user.id]);
   const upd=fn=>setP(prev=>{const n=JSON.parse(JSON.stringify(prev));fn(n);return n;});
@@ -411,10 +432,12 @@ function PredictionsView({user}){
 
   const groupsDone=allGroupsFilled(p.groupScores);
   const groupsPct=getGroupPct(p.groupScores);
-  const step1Done=groupsDone;
+  const thirds8 = p.thirds8 || [];
+  const thirds8Done = thirds8.length === 8;
+  const step1Done = groupsDone && thirds8Done;
 
   const getKO=id=>{for(const r of ["r32","r16","qf","sf","final"]) if(p.knockout?.[r]?.[id]) return p.knockout[r][id];return null;};
-  const r32=buildR32(p.groupScores);
+  const r32=buildR32(p.groupScores, p.thirds8||[]);
   const r16=[["r32-1","r32-2"],["r32-3","r32-4"],["r32-5","r32-6"],["r32-7","r32-8"],["r32-9","r32-10"],["r32-11","r32-12"],["r32-13","r32-14"],["r32-15","r32-16"]].map(([a,b],i)=>({id:`r16-${i+1}`,home:getKO(a)||"?",away:getKO(b)||"?"}));
   const qf=[["r16-1","r16-2"],["r16-3","r16-4"],["r16-5","r16-6"],["r16-7","r16-8"]].map(([a,b],i)=>({id:`qf-${i+1}`,home:getKO(a)||"?",away:getKO(b)||"?"}));
   const sf=[["qf-1","qf-2"],["qf-3","qf-4"]].map(([a,b],i)=>({id:`sf-${i+1}`,home:getKO(a)||"?",away:getKO(b)||"?"}));
@@ -618,15 +641,71 @@ function PredictionsView({user}){
             );
           })()}
 
+          {/* 3rd place selector */}
+          <div style={{marginBottom:20,padding:20,background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.25)",borderRadius:14}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <div>
+                <div style={{fontFamily:"Anton,sans-serif",fontSize:17,letterSpacing:2,color:"var(--azure)"}}>🔵 SELECT THE 8 BEST 3RD-PLACE TEAMS</div>
+                <div style={{fontSize:11,color:"var(--muted)",marginTop:3}}>Pick exactly 8 out of 12 · They face group winners in the R32</div>
+              </div>
+              <div style={{textAlign:"center"}}>
+                <div style={{fontFamily:"Anton,sans-serif",fontSize:28,color:thirds8Done?"var(--green)":"#ff8c42"}}>{thirds8.length}/8</div>
+                <div style={{fontSize:10,color:"var(--muted)"}}>SELECTED</div>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+              {Object.keys(GROUPS).map(g => {
+                const st = computeStandings(g, p.groupScores);
+                const third = st[2];
+                const isSelected = thirds8.some(t => t.group === g);
+                const canSelect = thirds8.length < 8 || isSelected;
+                if (!third) return (
+                  <div key={g} style={{padding:"12px",background:"rgba(255,255,255,.03)",borderRadius:8,border:"1px solid rgba(255,255,255,.06)",opacity:.5}}>
+                    <div style={{fontSize:10,color:"var(--muted)",marginBottom:4}}>GROUP {g}</div>
+                    <div style={{fontSize:11,color:"#555"}}>Fill scores first</div>
+                  </div>
+                );
+                return (
+                  <div key={g} onClick={() => {
+                    if (isLocked()) return;
+                    upd(pr => {
+                      pr.thirds8 = pr.thirds8 || [];
+                      if (isSelected) pr.thirds8 = pr.thirds8.filter(t => t.group !== g);
+                      else if (pr.thirds8.length < 8) pr.thirds8.push({group:g, team:third.team, pts:third.pts, gd:third.gd, gf:third.gf});
+                    });
+                  }} style={{
+                    padding:"12px 14px", borderRadius:10, cursor:(isLocked()||(!canSelect&&!isSelected))?"default":"pointer",
+                    background:isSelected?"rgba(57,255,20,.15)":"rgba(255,255,255,.04)",
+                    border:isSelected?"1px solid var(--green)":"1px solid rgba(65,161,231,.15)",
+                    opacity:(!canSelect&&!isSelected)?.4:1, transition:"all .15s"
+                  }}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                      <span style={{fontSize:10,letterSpacing:1,color:isSelected?"var(--green)":"var(--muted)",fontWeight:700}}>GRP {g}</span>
+                      {isSelected && <span>✅</span>}
+                    </div>
+                    <div style={{fontSize:12,color:isSelected?"var(--green)":"var(--text)",fontWeight:isSelected?700:400,marginBottom:5}}>{third.team}</div>
+                    <div style={{display:"flex",gap:6}}>
+                      <span style={{fontSize:10,background:"rgba(255,255,255,.08)",padding:"2px 6px",borderRadius:4,color:"var(--muted)"}}>{third.pts}pts</span>
+                      <span style={{fontSize:10,background:"rgba(255,255,255,.08)",padding:"2px 6px",borderRadius:4,color:third.gd>=0?"var(--green)":"#ff6b6b"}}>{third.gd>=0?"+":""}{third.gd}GD</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Validate button */}
           <div style={{textAlign:"center",padding:"20px 0"}}>
             {!groupsDone&&(
               <div style={{marginBottom:12,fontSize:13,color:"#ffb800"}}>⚠️ Complete all group scores first ({groupsPct}% done)</div>
             )}
+            {groupsDone && !thirds8Done && (
+              <div style={{marginBottom:12,fontSize:13,color:"#ffb800"}}>⚠️ Select {8-thirds8.length} more 3rd-place team{8-thirds8.length>1?"s":""}</div>
+            )}
 
             <button onClick={()=>{if(step1Done){save();setStep(2);}}} disabled={!step1Done||isLocked()}
               style={{padding:"14px 48px",background:step1Done?"linear-gradient(135deg,var(--blue),var(--azure))":"rgba(255,255,255,.1)",border:"none",borderRadius:10,color:step1Done?"#fff":"rgba(255,255,255,.3)",fontWeight:700,fontSize:16,cursor:step1Done&&!isLocked()?"pointer":"not-allowed",letterSpacing:1,transition:"all .3s",boxShadow:step1Done?"0 4px 20px rgba(65,161,231,.3)":"none"}}>
-              {step1Done?"✅ VALIDATE & CONTINUE →":`Complete all group scores (${groupsPct}%)`}
+              {!groupsDone?`Complete groups first (${groupsPct}%)`:!thirds8Done?`Select ${8-thirds8.length} more 3rd(s)`:"✅ VALIDATE & CONTINUE →"}
             </button>
           </div>
         </div>
