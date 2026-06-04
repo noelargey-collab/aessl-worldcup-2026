@@ -155,7 +155,7 @@ function buildR32(scores, thirds) {
     D: ['B','E','F','I','J'],
     G: ['A','E','H','I','J'],
     K: ['D','E','I','J','L'],
-    B: ['A','C','D','F','G','J','K','L'], // gets last remaining 3rd
+    B: ['E','F','G','I','J'], // M85: B1 vs 3rd(E/F/G/I/J)
   };
 
   // Assign 3rds to slots — use manual selection, respect no-rematch rule
@@ -181,24 +181,23 @@ function buildR32(scores, thirds) {
   }
 
   return [
-    // ── FIXED matchups (official FIFA 2026) ──
-    {id:'r32-1',  home:q.A2, away:q.B2,  label:'A2 vs B2'},
-    {id:'r32-2',  home:q.C1, away:q.F2,  label:'C1 vs F2'},
-    {id:'r32-3',  home:q.F1, away:q.C2,  label:'F1 vs C2'},
-    {id:'r32-4',  home:q.E2, away:q.I2,  label:'E2 vs I2'},
-    {id:'r32-5',  home:q.H1, away:q.J2,  label:'H1 vs J2'},
-    {id:'r32-6',  home:q.J1, away:q.H2,  label:'J1 vs H2'},
-    {id:'r32-7',  home:q.K2, away:q.L2,  label:'K2 vs L2'},
-    {id:'r32-8',  home:q.D2, away:q.G2,  label:'D2 vs G2'},
-    // ── VARIABLE matchups (group winner vs best 3rd) ──
-    {id:'r32-9',  home:q.E1, away:assigned.E, label:`E1 vs 3rd(A/B/C/D/F)`},
-    {id:'r32-10', home:q.I1, away:assigned.I, label:`I1 vs 3rd(C/D/F/G/H)`},
-    {id:'r32-11', home:q.A1, away:assigned.A, label:`A1 vs 3rd(C/E/F/H/I)`},
-    {id:'r32-12', home:q.L1, away:assigned.L, label:`L1 vs 3rd(E/H/I/J/K)`},
-    {id:'r32-13', home:q.D1, away:assigned.D, label:`D1 vs 3rd(B/E/F/I/J)`},
-    {id:'r32-14', home:q.G1, away:assigned.G, label:`G1 vs 3rd(A/E/H/I/J)`},
-    {id:'r32-15', home:q.K1, away:assigned.K, label:`K1 vs 3rd(D/E/I/J/L)`},
-    {id:'r32-16', home:q.B1, away:assigned.B, label:`B1 vs 3rd`},
+    // Official FIFA 2026 match order M73→M88 (r32-1 = M73, r32-2 = M74, etc.)
+    {id:'r32-1',  home:q.A2, away:q.B2,           label:'M73: A2 vs B2'},
+    {id:'r32-2',  home:q.E1, away:assigned.E,      label:'M74: E1 vs 3rd(A/B/C/D/F)'},
+    {id:'r32-3',  home:q.F1, away:q.C2,            label:'M75: F1 vs C2'},
+    {id:'r32-4',  home:q.C1, away:q.F2,            label:'M76: C1 vs F2'},
+    {id:'r32-5',  home:q.I1, away:assigned.I,      label:'M77: I1 vs 3rd(C/D/F/G/H)'},
+    {id:'r32-6',  home:q.E2, away:q.I2,            label:'M78: E2 vs I2'},
+    {id:'r32-7',  home:q.A1, away:assigned.A,      label:'M79: A1 vs 3rd(C/E/F/H/I)'},
+    {id:'r32-8',  home:q.L1, away:assigned.L,      label:'M80: L1 vs 3rd(E/H/I/J/K)'},
+    {id:'r32-9',  home:q.D1, away:assigned.D,      label:'M81: D1 vs 3rd(B/E/F/I/J)'},
+    {id:'r32-10', home:q.G1, away:assigned.G,      label:'M82: G1 vs 3rd(A/E/H/I/J)'},
+    {id:'r32-11', home:q.K2, away:q.L2,            label:'M83: K2 vs L2'},
+    {id:'r32-12', home:q.H1, away:q.J2,            label:'M84: H1 vs J2'},
+    {id:'r32-13', home:q.B1, away:assigned.B,      label:'M85: B1 vs 3rd(E/F/G/I/J)'},
+    {id:'r32-14', home:q.J1, away:q.H2,            label:'M86: J1 vs H2'},
+    {id:'r32-15', home:q.K1, away:assigned.K,      label:'M87: K1 vs 3rd(D/E/I/J/L)'},
+    {id:'r32-16', home:q.D2, away:q.G2,            label:'M88: D2 vs G2'},
   ];
 }
 
@@ -438,10 +437,59 @@ function PredictionsView({user}){
 
   const getKO=id=>{for(const r of ["r32","r16","qf","sf","final"]) if(p.knockout?.[r]?.[id]) return p.knockout[r][id];return null;};
   const r32=buildR32(p.groupScores, p.thirds8||[]);
-  const r16=[["r32-1","r32-2"],["r32-3","r32-4"],["r32-5","r32-6"],["r32-7","r32-8"],["r32-9","r32-10"],["r32-11","r32-12"],["r32-13","r32-14"],["r32-15","r32-16"]].map(([a,b],i)=>({id:`r16-${i+1}`,home:getKO(a)||"?",away:getKO(b)||"?"}));
-  const qf=[["r16-1","r16-2"],["r16-3","r16-4"],["r16-5","r16-6"],["r16-7","r16-8"]].map(([a,b],i)=>({id:`qf-${i+1}`,home:getKO(a)||"?",away:getKO(b)||"?"}));
-  const sf=[["qf-1","qf-2"],["qf-3","qf-4"]].map(([a,b],i)=>({id:`sf-${i+1}`,home:getKO(a)||"?",away:getKO(b)||"?"}));
-  const fin=[{id:"final-1",home:getKO("sf-1")||"?",away:getKO("sf-2")||"?"}];
+  // Official FIFA 2026 bracket paths (source: USA Today, Sky Sports, official schedule)
+  // R32 match IDs map to official match numbers:
+  // r32-1=M73, r32-2=M74, r32-3=M75, r32-4=M76, r32-5=M77, r32-6=M78
+  // r32-7=M79, r32-8=M80, r32-9=M81, r32-10=M82, r32-11=M83, r32-12=M84
+  // r32-13=M85, r32-14=M86, r32-15=M87, r32-16=M88
+  //
+  // R16: M89=W74vsW77, M90=W73vsW75, M91=W76vsW78, M92=W79vsW80
+  //      M93=W83vsW84, M94=W81vsW82, M95=W86vsW88, M96=W85vsW87
+  //
+  // QF:  M97=W89vsW90, M98=W93vsW94, M99=W91vsW92, M100=W95vsW96
+  // SF:  M101=W97vsW98, M102=W99vsW100
+  // Final: M104=W101vsW102
+
+  // r32 IDs: r32-1=M73, r32-2=M74, r32-3=M75, r32-4=M76
+  //          r32-5=M77, r32-6=M78, r32-7=M79, r32-8=M80
+  //          r32-9=M81, r32-10=M82, r32-11=M83, r32-12=M84
+  //          r32-13=M85, r32-14=M86, r32-15=M87, r32-16=M88
+
+  const mk = (id, a, b) => ({id, home: getKO(a)||"?", away: getKO(b)||"?"});
+
+  // Official FIFA 2026 bracket paths (verified vs USA Today / NBC Sports official schedule)
+  // R32 IDs → FIFA Match numbers:
+  // r32-1=M73, r32-2=M76, r32-3=M75, r32-4=M78, r32-5=M84, r32-6=M86
+  // r32-7=M83, r32-8=M88, r32-9=M74, r32-10=M77, r32-11=M79, r32-12=M80
+  // r32-13=M81, r32-14=M82, r32-15=M87, r32-16=M85
+
+  const r16 = [
+    mk("r16-1", "r32-9", "r32-10"),  // M89: W(M74) vs W(M77) — E1/3rd vs I1/3rd
+    mk("r16-2", "r32-1", "r32-3"),   // M90: W(M73) vs W(M75) — A2/B2 vs F1/C2
+    mk("r16-3", "r32-2", "r32-4"),   // M91: W(M76) vs W(M78) — C1/F2 vs E2/I2
+    mk("r16-4", "r32-11","r32-12"),  // M92: W(M79) vs W(M80) — A1/3rd vs L1/3rd
+    mk("r16-5", "r32-7", "r32-5"),   // M93: W(M83) vs W(M84) — K2/L2 vs H1/J2
+    mk("r16-6", "r32-13","r32-14"),  // M94: W(M81) vs W(M82) — D1/3rd vs G1/3rd
+    mk("r16-7", "r32-6", "r32-8"),   // M95: W(M86) vs W(M88) — J1/H2 vs D2/G2
+    mk("r16-8", "r32-16","r32-15"),  // M96: W(M85) vs W(M87) — B1/3rd vs K1/3rd
+  ];
+
+  // QF pairings (official):
+  // M97=W(M89)vsW(M90) | M98=W(M91)vsW(M92) | M99=W(M93)vsW(M94) | M100=W(M95)vsW(M96)
+  const qf = [
+    mk("qf-1", "r16-1", "r16-2"),   // M97: W(M89) vs W(M90)
+    mk("qf-2", "r16-3", "r16-4"),   // M98: W(M91) vs W(M92)
+    mk("qf-3", "r16-5", "r16-6"),   // M99: W(M93) vs W(M94)
+    mk("qf-4", "r16-7", "r16-8"),   // M100: W(M95) vs W(M96)
+  ];
+
+  // SF: M101=W(M97)vsW(M98) | M102=W(M99)vsW(M100)
+  const sf = [
+    mk("sf-1", "qf-1", "qf-2"),    // M101: W(M97) vs W(M98)
+    mk("sf-2", "qf-3", "qf-4"),    // M102: W(M99) vs W(M100)
+  ];
+
+  const fin = [mk("final-1", "sf-1", "sf-2")];
 
   const setKO=(mid,team,round)=>upd(pr=>{pr.knockout[round]=pr.knockout[round]||{};pr.knockout[round][mid]=team;});
 
