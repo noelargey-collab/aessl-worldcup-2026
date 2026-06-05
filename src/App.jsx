@@ -62,7 +62,7 @@ const TOP_SCORERS = [
   "🇲🇦 Soufiane Rahimi",
 ];
 
-const POINTS = { exactScore:5, correctResult:2, knockoutWinner:3, champion:10, topScorer:8, darkHorse:5 };
+const POINTS = { exactScore:5, correctResult:2, champion:10, topScorer:8, darkHorse:5 };
 const ADMIN_EMAIL = "admin@aesmsl.ch";
 const ADMIN_PWD = "aesmsl2026";
 const DEFAULT_DEADLINE = new Date("2026-06-11T16:00:00Z");
@@ -195,93 +195,12 @@ function getGroupPct(scores) {
 }
 
 // Get 8 best 3rd place teams, sorted by pts > gd > gf
-function getBest8Thirds(scores) {
-  const thirds = Object.keys(GROUPS).map(g=>{
-    const st=computeStandings(g,scores);
-    return st[2]?{...st[2],group:g}:null;
-  }).filter(Boolean);
-  thirds.sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf);
-  return thirds.slice(0,8);
-}
+
 
 // Official FIFA 2026 R32: which cluster of 3rd-place groups each group winner draws from
 // Source: ESPN official schedule & Wikipedia group articles
-const THIRD_CLUSTERS = {
-  A: ['C','E','F','H','I'],
-  E: ['A','B','C','D','F'],
-  I: ['C','D','F','G','H'],
-  L: ['E','H','I','J','K'],
-  G: ['A','E','H','I','J'],
-  D: ['B','E','F','I','J'],
-  K: ['D','E','I','J','L'],
-  B: ['A','C','D','F','G','J','K','L'],
-};
 
-// Official FIFA 2026 R32 structure (from official regulations + USA Today bracket)
-// thirds: array of {group, team} — the 8 manually selected best 3rd place teams
-function buildR32(scores, thirds) {
-  const q = {};
-  Object.keys(GROUPS).forEach(g => {
-    const st = computeStandings(g, scores);
-    q[`${g}1`] = st[0]?.team || `1st ${g}`;
-    q[`${g}2`] = st[1]?.team || `2nd ${g}`;
-  });
 
-  // Official FIFA 2026 cluster assignments per group winner
-  // Source: USA Today official bracket / FIFA regulations
-  const CLUSTERS = {
-    A: ['C','E','F','H','I'],
-    E: ['A','B','C','D','F'],
-    I: ['C','D','F','G','H'],
-    L: ['E','H','I','J','K'],
-    D: ['B','E','F','I','J'],
-    G: ['A','E','H','I','J'],
-    K: ['D','E','I','J','L'],
-    B: ['E','F','G','I','J'], // M85: B1 vs 3rd(E/F/G/I/J)
-  };
-
-  // Assign 3rds to slots — use manual selection, respect no-rematch rule
-  const assigned = {};
-  const used = new Set();
-  const slotOrder = ['A','E','I','L','D','G','K','B'];
-
-  if (thirds && thirds.length > 0) {
-    slotOrder.forEach(slot => {
-      const cluster = CLUSTERS[slot] || [];
-      // Find best 3rd (by order in thirds array) from cluster not yet used and not from own group
-      const pick = thirds.find(t => cluster.includes(t.group) && !used.has(t.group) && t.group !== slot);
-      if (pick) { assigned[slot] = pick.team; used.add(pick.group); }
-      else {
-        // fallback: any unused 3rd not from own group
-        const fallback = thirds.find(t => !used.has(t.group) && t.group !== slot);
-        if (fallback) { assigned[slot] = fallback.team; used.add(fallback.group); }
-        else assigned[slot] = '?';
-      }
-    });
-  } else {
-    slotOrder.forEach(slot => { assigned[slot] = '3rd TBD'; });
-  }
-
-  return [
-    // Official FIFA 2026 match order M73→M88 (r32-1 = M73, r32-2 = M74, etc.)
-    {id:'r32-1',  home:q.A2, away:q.B2,           label:'M73: A2 vs B2'},
-    {id:'r32-2',  home:q.E1, away:assigned.E,      label:'M74: E1 vs 3rd(A/B/C/D/F)'},
-    {id:'r32-3',  home:q.F1, away:q.C2,            label:'M75: F1 vs C2'},
-    {id:'r32-4',  home:q.C1, away:q.F2,            label:'M76: C1 vs F2'},
-    {id:'r32-5',  home:q.I1, away:assigned.I,      label:'M77: I1 vs 3rd(C/D/F/G/H)'},
-    {id:'r32-6',  home:q.E2, away:q.I2,            label:'M78: E2 vs I2'},
-    {id:'r32-7',  home:q.A1, away:assigned.A,      label:'M79: A1 vs 3rd(C/E/F/H/I)'},
-    {id:'r32-8',  home:q.L1, away:assigned.L,      label:'M80: L1 vs 3rd(E/H/I/J/K)'},
-    {id:'r32-9',  home:q.D1, away:assigned.D,      label:'M81: D1 vs 3rd(B/E/F/I/J)'},
-    {id:'r32-10', home:q.G1, away:assigned.G,      label:'M82: G1 vs 3rd(A/E/H/I/J)'},
-    {id:'r32-11', home:q.K2, away:q.L2,            label:'M83: K2 vs L2'},
-    {id:'r32-12', home:q.H1, away:q.J2,            label:'M84: H1 vs J2'},
-    {id:'r32-13', home:q.B1, away:assigned.B,      label:'M85: B1 vs 3rd(E/F/G/I/J)'},
-    {id:'r32-14', home:q.J1, away:q.H2,            label:'M86: J1 vs H2'},
-    {id:'r32-15', home:q.K1, away:assigned.K,      label:'M87: K1 vs 3rd(D/E/I/J/L)'},
-    {id:'r32-16', home:q.D2, away:q.G2,            label:'M88: D2 vs G2'},
-  ];
-}
 
 // ─── AUTH & SCORING ───────────────────────────────────────────────────────────
 function hashPw(s){let h=0;for(let i=0;i<s.length;i++)h=(Math.imul(31,h)+s.charCodeAt(i))|0;return h.toString(36);}
@@ -417,36 +336,98 @@ function AuthView({onLogin}){
 }
 
 // ─── LEADERBOARD ──────────────────────────────────────────────────────────────
-function Leaderboard({uid,results,settings}){
+function Leaderboard({uid, results, settings}){
   const [entries,setEntries]=useState([]);
+  const [myEntry,setMyEntry]=useState(null);
   const [loading,setLoading]=useState(true);
+
+  const revealed = !settings?.hideLeaderboard;
+
   useEffect(()=>{
     const unsub=onSnapshot(collection(db,"pronostics"),async snap=>{
       const pronos={};snap.docs.forEach(d=>{pronos[d.id]=d.data();});
       try{
         const [uSnap,res]=await Promise.all([getDocs(collection(db,"users")),fbGetResults()]);
         const list=uSnap.docs.map(d=>d.data()).filter(u=>!u.isAdmin).map(u=>({
-          id:u.id,name:`${u.prenom} ${u.nom}`,pts:calcPoints(pronos[u.id],res||results),submitted:!!pronos[u.id]
+          id:u.id, name:`${u.prenom} ${u.nom}`,
+          pts:calcPoints(pronos[u.id],res||results),
+          submitted:!!pronos[u.id]
         })).sort((a,b)=>b.pts-a.pts);
-        setEntries(list);setLoading(false);
+        setEntries(list);
+        const me = list.find(e=>e.id===uid);
+        const myRank = list.findIndex(e=>e.id===uid)+1;
+        setMyEntry(me ? {...me, rank:myRank, total:list.length} : null);
+        setLoading(false);
       }catch{setLoading(false);}
     });
     return()=>unsub();
   },[results]);
+
   if(loading) return <Spinner/>;
   const medals=["🥇","🥈","🥉"],colors=["#c0c0c0","#ffd700","#cd7f32"];
 
-  if(settings?.hideLeaderboard) return(
+  // ── SUSPENSE MODE (hidden leaderboard) ─────────────────────────────────────
+  if(!revealed) return(
     <div>
-      <STitle icon="🏅" title="LEADERBOARD" sub="Results coming soon"/>
-      <div style={{textAlign:"center",padding:"60px 20px",background:"rgba(23,45,105,.4)",border:"1px solid rgba(65,161,231,.15)",borderRadius:16}}>
-        <div style={{fontSize:48,marginBottom:16}}>🔒</div>
-        <div style={{fontFamily:"Anton,sans-serif",fontSize:22,letterSpacing:3,color:"var(--azure)",marginBottom:8}}>RANKING HIDDEN</div>
-        <div style={{fontSize:14,color:"var(--muted)"}}>The leaderboard will be revealed by the admins. Stay tuned!</div>
+      <STitle icon="🏅" title="LEADERBOARD" sub="Results revealed at the end of the tournament"/>
+
+      {/* My personal score card */}
+      {myEntry ? (
+        <div style={{marginBottom:20,padding:24,background:"linear-gradient(135deg,rgba(23,45,105,.8),rgba(4,103,172,.3))",border:"1px solid rgba(65,161,231,.3)",borderRadius:16,textAlign:"center"}}>
+          <div style={{fontSize:13,color:"var(--muted)",letterSpacing:2,marginBottom:8}}>YOUR SCORE</div>
+          <div style={{fontFamily:"Anton,sans-serif",fontSize:56,color:"var(--azure)",lineHeight:1}}>{myEntry.pts}</div>
+          <div style={{fontSize:14,color:"var(--muted)",marginTop:4}}>points</div>
+          <div style={{marginTop:16,display:"flex",justifyContent:"center",gap:20}}>
+            <div style={{textAlign:"center"}}>
+              <div style={{fontFamily:"Anton,sans-serif",fontSize:24,color:"var(--green)"}}>
+                {myEntry.rank <= 3 ? medals[myEntry.rank-1] : `#${myEntry.rank}`}
+              </div>
+              <div style={{fontSize:11,color:"var(--muted)",marginTop:2}}>YOUR RANK</div>
+            </div>
+            <div style={{width:1,background:"rgba(255,255,255,.1)"}}/>
+            <div style={{textAlign:"center"}}>
+              <div style={{fontFamily:"Anton,sans-serif",fontSize:24,color:"var(--text)"}}>{myEntry.total}</div>
+              <div style={{fontSize:11,color:"var(--muted)",marginTop:2}}>PARTICIPANTS</div>
+            </div>
+          </div>
+          {!myEntry.submitted && (
+            <div style={{marginTop:14,padding:"8px 16px",background:"rgba(255,140,66,.1)",border:"1px solid rgba(255,140,66,.3)",borderRadius:8,fontSize:12,color:"#ff8c42"}}>
+              ⏳ You haven't submitted your predictions yet!
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{marginBottom:20,padding:24,background:"rgba(23,45,105,.4)",border:"1px solid rgba(65,161,231,.15)",borderRadius:16,textAlign:"center"}}>
+          <div style={{fontSize:13,color:"var(--muted)"}}>Submit your predictions to see your score</div>
+        </div>
+      )}
+
+      {/* Teaser */}
+      <div style={{padding:24,background:"rgba(23,45,105,.4)",border:"1px solid rgba(65,161,231,.15)",borderRadius:16,textAlign:"center"}}>
+        <div style={{fontSize:36,marginBottom:12}}>🔒</div>
+        <div style={{fontFamily:"Anton,sans-serif",fontSize:18,letterSpacing:3,color:"var(--azure)",marginBottom:8}}>FULL RANKING HIDDEN</div>
+        <div style={{fontSize:13,color:"var(--muted)",marginBottom:16}}>The complete leaderboard will be revealed by the admins.<br/>Stay focused — anything can happen!</div>
+        <div style={{display:"flex",justifyContent:"center",gap:8,flexWrap:"wrap"}}>
+          <div style={{padding:"8px 16px",background:"rgba(255,255,255,.05)",borderRadius:8,fontSize:12,color:"var(--muted)"}}>
+            👥 {entries.length} participants
+          </div>
+          <div style={{padding:"8px 16px",background:"rgba(255,255,255,.05)",borderRadius:8,fontSize:12,color:"var(--muted)"}}>
+            📝 {entries.filter(e=>e.submitted).length} predictions submitted
+          </div>
+        </div>
+      </div>
+
+      {/* Scoring reminder */}
+      <div style={{marginTop:14,padding:"10px 14px",background:"rgba(255,255,255,.02)",border:"1px solid rgba(255,255,255,.06)",borderRadius:10,fontSize:11,color:"var(--muted)"}}>
+        <strong style={{color:"rgba(255,255,255,.5)"}}>Scoring:</strong>{" "}
+        {[["Exact score",5],["Correct result",2],["Champion",10],["Top scorer",8],["Dark horse",5]].map(([l,v])=>(
+          <span key={l} style={{marginRight:14}}><span style={{color:"var(--azure)",fontWeight:700}}>{v}pts</span> {l}</span>
+        ))}
       </div>
     </div>
   );
 
+  // ── REVEALED MODE (full leaderboard) ───────────────────────────────────────
   return(
     <div>
       <STitle icon="🏅" title="LEADERBOARD" sub="Updated in real time"/>
@@ -490,7 +471,7 @@ function Leaderboard({uid,results,settings}){
       </div>
       <div style={{marginTop:12,padding:"10px 14px",background:"rgba(255,255,255,.02)",border:"1px solid rgba(255,255,255,.06)",borderRadius:10,fontSize:11,color:"var(--muted)"}}>
         <strong style={{color:"rgba(255,255,255,.5)"}}>Scoring:</strong>{" "}
-        {[["Exact score",5],["Correct result",2],["KO qualifier",3],["Champion",10],["Top scorer",8],["Dark horse",5]].map(([l,v])=>(
+        {[["Exact score",5],["Correct result",2],["Champion",10],["Top scorer",8],["Dark horse",5]].map(([l,v])=>(
           <span key={l} style={{marginRight:14}}><span style={{color:"var(--azure)",fontWeight:700}}>{v}pts</span> {l}</span>
         ))}
       </div>
@@ -554,10 +535,10 @@ function PredictionsView({user}){
   );
 
   const filledG=GROUP_MATCHES.filter(m=>{const s=p.groupScores?.[m.id];return s&&s.h!=null&&s.a!=null;}).length;
-  const progress=Math.round(((filledG+(p.champion?1:0)+(p.topScorer?1:0)+(p.darkHorse?1:0)+(groupsDone?1:0))/(GROUP_MATCHES.length+4))*100);
+  const progress=Math.round(((filledG+(p.champion?1:0)+(p.topScorer?1:0)+(p.darkHorse?1:0)+(groupsDone?1:0))/(GROUP_MATCHES.length+3))*100);
 
   // Step indicator
-  const steps=[{n:1,l:"Groups & 3rd place"},{n:2,l:"Knockout"},{n:3,l:"Bonus"}];
+  const steps=[{n:1,l:"Group Stage"},{n:2,l:"Bonus"}];
 
   return(
     <div>
@@ -849,8 +830,8 @@ function AdminView({onResultsChange, onSettingsChange, settings}){
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20}}>
             <div style={{background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.2)",borderRadius:12,padding:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <div>
-                <div style={{fontWeight:700,fontSize:14}}>👁️ Leaderboard visible</div>
-                <div style={{fontSize:11,color:"var(--muted)",marginTop:3}}>Participants can see the ranking</div>
+                <div style={{fontWeight:700,fontSize:14}}>👁️ Reveal full leaderboard</div>
+                <div style={{fontSize:11,color:"var(--muted)",marginTop:3}}>{settings?.hideLeaderboard?"Participants see their score only":"Full ranking visible to all"}</div>
               </div>
               <div onClick={toggleLeaderboard} style={{width:44,height:24,borderRadius:12,background:settings?.hideLeaderboard?"rgba(255,80,80,.3)":"rgba(57,255,20,.3)",border:settings?.hideLeaderboard?"1px solid #ff8888":"1px solid var(--green)",cursor:"pointer",position:"relative",transition:"all .3s"}}>
                 <div style={{width:18,height:18,borderRadius:"50%",background:settings?.hideLeaderboard?"#ff8888":"var(--green)",position:"absolute",top:2,left:settings?.hideLeaderboard?2:22,transition:"left .3s"}}/>
@@ -995,7 +976,7 @@ function AdminView({onResultsChange, onSettingsChange, settings}){
               <div>
                 <div style={{fontFamily:"Anton,sans-serif",fontSize:16,letterSpacing:2,color:"var(--azure)"}}>👁️ LEADERBOARD VISIBILITY</div>
                 <div style={{fontSize:12,color:"var(--muted)",marginTop:4}}>
-                  {settings?.hideLeaderboard?"🔴 Hidden — participants see a placeholder":"🟢 Visible — participants see the full ranking"}
+                  {settings?.hideLeaderboard?"🔴 Suspense mode — each participant sees only their own score":"🟢 Revealed — full ranking visible to all"}
                 </div>
               </div>
               <div onClick={toggleLeaderboard} style={{width:52,height:28,borderRadius:14,background:settings?.hideLeaderboard?"rgba(255,80,80,.3)":"rgba(57,255,20,.3)",border:settings?.hideLeaderboard?"1px solid #ff8888":"1px solid var(--green)",cursor:"pointer",position:"relative",transition:"all .3s",flexShrink:0}}>
