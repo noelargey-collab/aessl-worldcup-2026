@@ -65,10 +65,12 @@ const TOP_SCORERS = [
 const POINTS = { exactScore:5, correctResult:2, knockoutWinner:3, champion:10, topScorer:8, darkHorse:5 };
 const ADMIN_EMAIL = "admin@aesmsl.ch";
 const ADMIN_PWD = "aesmsl2026";
-const DEADLINE = new Date("2026-06-11T16:00:00Z");
-const isLocked = () => new Date() >= DEADLINE;
+const DEFAULT_DEADLINE = new Date("2026-06-11T16:00:00Z");
+let _deadlineOverride = null;
+const getDeadline = () => _deadlineOverride || DEFAULT_DEADLINE;
+const isLocked = () => new Date() >= getDeadline();
 const timeLeft = () => {
-  const d = DEADLINE - new Date();
+  const d = getDeadline() - new Date();
   if (d <= 0) return null;
   const days = Math.floor(d/(1000*60*60*24));
   const hrs = Math.floor((d%(1000*60*60*24))/(1000*60*60));
@@ -78,13 +80,93 @@ const timeLeft = () => {
   return `${mins} minutes`;
 };
 
-const GROUP_MATCHES = Object.entries(GROUPS).flatMap(([g,teams]) => {
-  const m=[];
-  for(let i=0;i<teams.length;i++)
-    for(let j=i+1;j<teams.length;j++)
-      m.push({id:`${g}${i}${j}`,group:g,home:teams[i],away:teams[j]});
-  return m;
-});
+// Official FIFA 2026 group stage matches in chronological order per group
+const GROUP_MATCHES = [
+  // GROUP A
+  {id:"A01",group:"A",home:"🇲🇽 Mexico",        away:"🇿🇦 South Africa", date:"Jun 11", time:"3:00 PM ET"},
+  {id:"A02",group:"A",home:"🇰🇷 South Korea",   away:"🇨🇿 Czechia",      date:"Jun 11", time:"10:00 PM ET"},
+  {id:"A03",group:"A",home:"🇨🇿 Czechia",       away:"🇿🇦 South Africa", date:"Jun 18", time:"12:00 PM ET"},
+  {id:"A04",group:"A",home:"🇲🇽 Mexico",        away:"🇰🇷 South Korea",  date:"Jun 18", time:"9:00 PM ET"},
+  {id:"A05",group:"A",home:"🇨🇿 Czechia",       away:"🇲🇽 Mexico",       date:"Jun 24", time:"9:00 PM ET"},
+  {id:"A06",group:"A",home:"🇿🇦 South Africa",  away:"🇰🇷 South Korea",  date:"Jun 24", time:"9:00 PM ET"},
+  // GROUP B
+  {id:"B01",group:"B",home:"🇨🇦 Canada",        away:"🇧🇦 Bosnia-Herzegovina", date:"Jun 12", time:"3:00 PM ET"},
+  {id:"B02",group:"B",home:"🇶🇦 Qatar",         away:"🇨🇭 Switzerland",        date:"Jun 13", time:"3:00 PM ET"},
+  {id:"B03",group:"B",home:"🇨🇭 Switzerland",   away:"🇧🇦 Bosnia-Herzegovina", date:"Jun 18", time:"3:00 PM ET"},
+  {id:"B04",group:"B",home:"🇨🇦 Canada",        away:"🇶🇦 Qatar",              date:"Jun 18", time:"6:00 PM ET"},
+  {id:"B05",group:"B",home:"🇨🇭 Switzerland",   away:"🇨🇦 Canada",             date:"Jun 24", time:"3:00 PM ET"},
+  {id:"B06",group:"B",home:"🇧🇦 Bosnia-Herzegovina", away:"🇶🇦 Qatar",          date:"Jun 24", time:"3:00 PM ET"},
+  // GROUP C
+  {id:"C01",group:"C",home:"🇧🇷 Brazil",        away:"🇲🇦 Morocco",  date:"Jun 13", time:"6:00 PM ET"},
+  {id:"C02",group:"C",home:"🇭🇹 Haiti",         away:"🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland", date:"Jun 13", time:"9:00 PM ET"},
+  {id:"C03",group:"C",home:"🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland",    away:"🇲🇦 Morocco",  date:"Jun 19", time:"6:00 PM ET"},
+  {id:"C04",group:"C",home:"🇧🇷 Brazil",        away:"🇭🇹 Haiti",    date:"Jun 19", time:"9:00 PM ET"},
+  {id:"C05",group:"C",home:"🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland",    away:"🇧🇷 Brazil",   date:"Jun 24", time:"6:00 PM ET"},
+  {id:"C06",group:"C",home:"🇲🇦 Morocco",       away:"🇭🇹 Haiti",    date:"Jun 24", time:"6:00 PM ET"},
+  // GROUP D
+  {id:"D01",group:"D",home:"🇺🇸 USA",           away:"🇵🇾 Paraguay",  date:"Jun 12", time:"9:00 PM ET"},
+  {id:"D02",group:"D",home:"🇦🇺 Australia",     away:"🇹🇷 Türkiye",   date:"Jun 13", time:"12:00 AM ET"},
+  {id:"D03",group:"D",home:"🇺🇸 USA",           away:"🇦🇺 Australia", date:"Jun 19", time:"3:00 PM ET"},
+  {id:"D04",group:"D",home:"🇹🇷 Türkiye",       away:"🇵🇾 Paraguay",  date:"Jun 19", time:"12:00 AM ET"},
+  {id:"D05",group:"D",home:"🇹🇷 Türkiye",       away:"🇺🇸 USA",       date:"Jun 25", time:"10:00 PM ET"},
+  {id:"D06",group:"D",home:"🇵🇾 Paraguay",      away:"🇦🇺 Australia", date:"Jun 25", time:"10:00 PM ET"},
+  // GROUP E
+  {id:"E01",group:"E",home:"🇩🇪 Germany",       away:"🇨🇼 Curaçao",       date:"Jun 14", time:"1:00 PM ET"},
+  {id:"E02",group:"E",home:"🇨🇮 Ivory Coast",   away:"🇪🇨 Ecuador",       date:"Jun 14", time:"7:00 PM ET"},
+  {id:"E03",group:"E",home:"🇩🇪 Germany",       away:"🇨🇮 Ivory Coast",   date:"Jun 20", time:"4:00 PM ET"},
+  {id:"E04",group:"E",home:"🇪🇨 Ecuador",       away:"🇨🇼 Curaçao",       date:"Jun 20", time:"8:00 PM ET"},
+  {id:"E05",group:"E",home:"🇪🇨 Ecuador",       away:"🇩🇪 Germany",       date:"Jun 25", time:"4:00 PM ET"},
+  {id:"E06",group:"E",home:"🇨🇼 Curaçao",       away:"🇨🇮 Ivory Coast",   date:"Jun 25", time:"4:00 PM ET"},
+  // GROUP F
+  {id:"F01",group:"F",home:"🇳🇱 Netherlands",   away:"🇯🇵 Japan",   date:"Jun 14", time:"4:00 PM ET"},
+  {id:"F02",group:"F",home:"🇸🇪 Sweden",        away:"🇹🇳 Tunisia", date:"Jun 14", time:"10:00 PM ET"},
+  {id:"F03",group:"F",home:"🇳🇱 Netherlands",   away:"🇸🇪 Sweden",  date:"Jun 20", time:"1:00 PM ET"},
+  {id:"F04",group:"F",home:"🇹🇳 Tunisia",       away:"🇯🇵 Japan",   date:"Jun 20", time:"12:00 AM ET"},
+  {id:"F05",group:"F",home:"🇯🇵 Japan",         away:"🇸🇪 Sweden",  date:"Jun 25", time:"7:00 PM ET"},
+  {id:"F06",group:"F",home:"🇹🇳 Tunisia",       away:"🇳🇱 Netherlands", date:"Jun 25", time:"7:00 PM ET"},
+  // GROUP G
+  {id:"G01",group:"G",home:"🇧🇪 Belgium",       away:"🇪🇬 Egypt",         date:"Jun 15", time:"3:00 PM ET"},
+  {id:"G02",group:"G",home:"🇮🇷 Iran",          away:"🇳🇿 New Zealand",   date:"Jun 15", time:"9:00 PM ET"},
+  {id:"G03",group:"G",home:"🇧🇪 Belgium",       away:"🇮🇷 Iran",          date:"Jun 21", time:"3:00 PM ET"},
+  {id:"G04",group:"G",home:"🇳🇿 New Zealand",   away:"🇪🇬 Egypt",         date:"Jun 21", time:"9:00 PM ET"},
+  {id:"G05",group:"G",home:"🇪🇬 Egypt",         away:"🇮🇷 Iran",          date:"Jun 26", time:"11:00 PM ET"},
+  {id:"G06",group:"G",home:"🇳🇿 New Zealand",   away:"🇧🇪 Belgium",       date:"Jun 26", time:"11:00 PM ET"},
+  // GROUP H
+  {id:"H01",group:"H",home:"🇪🇸 Spain",         away:"🇨🇻 Cape Verde",    date:"Jun 15", time:"12:00 PM ET"},
+  {id:"H02",group:"H",home:"🇸🇦 Saudi Arabia",  away:"🇺🇾 Uruguay",       date:"Jun 15", time:"6:00 PM ET"},
+  {id:"H03",group:"H",home:"🇪🇸 Spain",         away:"🇸🇦 Saudi Arabia",  date:"Jun 21", time:"12:00 PM ET"},
+  {id:"H04",group:"H",home:"🇺🇾 Uruguay",       away:"🇨🇻 Cape Verde",    date:"Jun 21", time:"6:00 PM ET"},
+  {id:"H05",group:"H",home:"🇨🇻 Cape Verde",    away:"🇸🇦 Saudi Arabia",  date:"Jun 26", time:"8:00 PM ET"},
+  {id:"H06",group:"H",home:"🇺🇾 Uruguay",       away:"🇪🇸 Spain",         date:"Jun 26", time:"8:00 PM ET"},
+  // GROUP I
+  {id:"I01",group:"I",home:"🇫🇷 France",        away:"🇸🇳 Senegal", date:"Jun 16", time:"3:00 PM ET"},
+  {id:"I02",group:"I",home:"🇮🇶 Iraq",          away:"🇳🇴 Norway",  date:"Jun 16", time:"6:00 PM ET"},
+  {id:"I03",group:"I",home:"🇫🇷 France",        away:"🇮🇶 Iraq",    date:"Jun 22", time:"5:00 PM ET"},
+  {id:"I04",group:"I",home:"🇳🇴 Norway",        away:"🇸🇳 Senegal", date:"Jun 22", time:"8:00 PM ET"},
+  {id:"I05",group:"I",home:"🇳🇴 Norway",        away:"🇫🇷 France",  date:"Jun 26", time:"3:00 PM ET"},
+  {id:"I06",group:"I",home:"🇸🇳 Senegal",       away:"🇮🇶 Iraq",    date:"Jun 26", time:"3:00 PM ET"},
+  // GROUP J
+  {id:"J01",group:"J",home:"🇦🇷 Argentina",     away:"🇩🇿 Algeria", date:"Jun 16", time:"9:00 PM ET"},
+  {id:"J02",group:"J",home:"🇦🇹 Austria",       away:"🇯🇴 Jordan",  date:"Jun 16", time:"12:00 AM ET"},
+  {id:"J03",group:"J",home:"🇦🇷 Argentina",     away:"🇦🇹 Austria", date:"Jun 22", time:"1:00 PM ET"},
+  {id:"J04",group:"J",home:"🇯🇴 Jordan",        away:"🇩🇿 Algeria", date:"Jun 22", time:"11:00 PM ET"},
+  {id:"J05",group:"J",home:"🇩🇿 Algeria",       away:"🇦🇹 Austria", date:"Jun 27", time:"10:00 PM ET"},
+  {id:"J06",group:"J",home:"🇯🇴 Jordan",        away:"🇦🇷 Argentina", date:"Jun 27", time:"10:00 PM ET"},
+  // GROUP K
+  {id:"K01",group:"K",home:"🇵🇹 Portugal",      away:"🇨🇩 DR Congo",   date:"Jun 17", time:"1:00 PM ET"},
+  {id:"K02",group:"K",home:"🇺🇿 Uzbekistan",    away:"🇨🇴 Colombia",   date:"Jun 17", time:"10:00 PM ET"},
+  {id:"K03",group:"K",home:"🇵🇹 Portugal",      away:"🇺🇿 Uzbekistan", date:"Jun 23", time:"1:00 PM ET"},
+  {id:"K04",group:"K",home:"🇨🇴 Colombia",      away:"🇨🇩 DR Congo",   date:"Jun 23", time:"10:00 PM ET"},
+  {id:"K05",group:"K",home:"🇨🇴 Colombia",      away:"🇵🇹 Portugal",   date:"Jun 27", time:"7:30 PM ET"},
+  {id:"K06",group:"K",home:"🇨🇩 DR Congo",      away:"🇺🇿 Uzbekistan", date:"Jun 27", time:"7:30 PM ET"},
+  // GROUP L
+  {id:"L01",group:"L",home:"🏴󠁧󠁢󠁥󠁮󠁧󠁿 England",     away:"🇭🇷 Croatia", date:"Jun 17", time:"4:00 PM ET"},
+  {id:"L02",group:"L",home:"🇬🇭 Ghana",         away:"🇵🇦 Panama",  date:"Jun 17", time:"7:00 PM ET"},
+  {id:"L03",group:"L",home:"🏴󠁧󠁢󠁥󠁮󠁧󠁿 England",     away:"🇬🇭 Ghana",   date:"Jun 23", time:"4:00 PM ET"},
+  {id:"L04",group:"L",home:"🇵🇦 Panama",        away:"🇭🇷 Croatia",  date:"Jun 23", time:"7:00 PM ET"},
+  {id:"L05",group:"L",home:"🇵🇦 Panama",        away:"🏴󠁧󠁢󠁥󠁮󠁧󠁿 England",  date:"Jun 27", time:"5:00 PM ET"},
+  {id:"L06",group:"L",home:"🇭🇷 Croatia",       away:"🇬🇭 Ghana",   date:"Jun 27", time:"5:00 PM ET"},
+];
 
 // ─── STANDINGS & BRACKET LOGIC ────────────────────────────────────────────────
 function computeStandings(gid, scores) {
@@ -213,10 +295,7 @@ function calcPoints(pr,res) {
     if(+p.h===+r.h&&+p.a===+r.a) pts+=POINTS.exactScore;
     else if(Math.sign(+p.h-+p.a)===Math.sign(+r.h-+r.a)) pts+=POINTS.correctResult;
   });
-  ["r32","r16","qf","sf","final"].forEach(round=>{
-    const rp=res.knockout?.[round]||{},pp=pr.knockout?.[round]||{};
-    Object.keys(rp).forEach(k=>{if(pp[k]&&pp[k]===rp[k])pts+=POINTS.knockoutWinner;});
-  });
+
   const pC=pr.champion==="__other__"?pr.championOther:pr.champion;
   const pS=pr.topScorer==="__other__"?pr.topScorerOther:pr.topScorer;
   if(pC&&res.champion&&pC.trim().toLowerCase()===res.champion.trim().toLowerCase()) pts+=POINTS.champion;
@@ -338,7 +417,7 @@ function AuthView({onLogin}){
 }
 
 // ─── LEADERBOARD ──────────────────────────────────────────────────────────────
-function Leaderboard({uid,results}){
+function Leaderboard({uid,results,settings}){
   const [entries,setEntries]=useState([]);
   const [loading,setLoading]=useState(true);
   useEffect(()=>{
@@ -356,6 +435,18 @@ function Leaderboard({uid,results}){
   },[results]);
   if(loading) return <Spinner/>;
   const medals=["🥇","🥈","🥉"],colors=["#c0c0c0","#ffd700","#cd7f32"];
+
+  if(settings?.hideLeaderboard) return(
+    <div>
+      <STitle icon="🏅" title="LEADERBOARD" sub="Results coming soon"/>
+      <div style={{textAlign:"center",padding:"60px 20px",background:"rgba(23,45,105,.4)",border:"1px solid rgba(65,161,231,.15)",borderRadius:16}}>
+        <div style={{fontSize:48,marginBottom:16}}>🔒</div>
+        <div style={{fontFamily:"Anton,sans-serif",fontSize:22,letterSpacing:3,color:"var(--azure)",marginBottom:8}}>RANKING HIDDEN</div>
+        <div style={{fontSize:14,color:"var(--muted)"}}>The leaderboard will be revealed by the admins. Stay tuned!</div>
+      </div>
+    </div>
+  );
+
   return(
     <div>
       <STitle icon="🏅" title="LEADERBOARD" sub="Updated in real time"/>
@@ -415,7 +506,7 @@ function PredictionsView({user}){
   const [saving,setSaving]=useState(false);
   const [saved,setSaved]=useState(false);
   const [loading,setLoading]=useState(true);
-  const EMPTY={groupScores:{},knockout:{r32:{},r16:{},qf:{},sf:{},final:{}},champion:null,championOther:"",topScorer:null,topScorerOther:"",darkHorse:null};
+  const EMPTY={groupScores:{},champion:null,championOther:"",topScorer:null,topScorerOther:"",darkHorse:null};
 
   useEffect(()=>{fbGetPronos(user.id).then(data=>{setP(data||EMPTY);setLoading(false);});},[ user.id]);
   const upd=fn=>setP(prev=>{const n=JSON.parse(JSON.stringify(prev));fn(n);return n;});
@@ -432,85 +523,6 @@ function PredictionsView({user}){
   const groupsDone=allGroupsFilled(p.groupScores);
   const groupsPct=getGroupPct(p.groupScores);
   const step1Done = groupsDone;
-
-  const getKO=id=>{for(const r of ["r32","r16","qf","sf","final"]) if(p.knockout?.[r]?.[id]) return p.knockout[r][id];return null;};
-  // Auto-calculate best 8 thirds from group scores
-  const autoThirds8 = Object.keys(GROUPS).map(g=>{
-    const st=computeStandings(g,p.groupScores);
-    return st[2]?{group:g,team:st[2].team,pts:st[2].pts,gd:st[2].gd,gf:st[2].gf}:null;
-  }).filter(Boolean).sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf).slice(0,8);
-  const r32=buildR32(p.groupScores, autoThirds8);
-  // Official FIFA 2026 bracket paths (source: USA Today, Sky Sports, official schedule)
-  // R32 match IDs map to official match numbers:
-  // r32-1=M73, r32-2=M74, r32-3=M75, r32-4=M76, r32-5=M77, r32-6=M78
-  // r32-7=M79, r32-8=M80, r32-9=M81, r32-10=M82, r32-11=M83, r32-12=M84
-  // r32-13=M85, r32-14=M86, r32-15=M87, r32-16=M88
-  //
-  // R16: M89=W74vsW77, M90=W73vsW75, M91=W76vsW78, M92=W79vsW80
-  //      M93=W83vsW84, M94=W81vsW82, M95=W86vsW88, M96=W85vsW87
-  //
-  // QF:  M97=W89vsW90, M98=W93vsW94, M99=W91vsW92, M100=W95vsW96
-  // SF:  M101=W97vsW98, M102=W99vsW100
-  // Final: M104=W101vsW102
-
-  // r32 IDs: r32-1=M73, r32-2=M74, r32-3=M75, r32-4=M76
-  //          r32-5=M77, r32-6=M78, r32-7=M79, r32-8=M80
-  //          r32-9=M81, r32-10=M82, r32-11=M83, r32-12=M84
-  //          r32-13=M85, r32-14=M86, r32-15=M87, r32-16=M88
-
-  const mk = (id, a, b) => ({id, home: getKO(a)||"?", away: getKO(b)||"?"});
-
-  // Official FIFA 2026 bracket paths (verified vs USA Today / NBC Sports official schedule)
-  // R32 IDs → FIFA Match numbers:
-  // r32-1=M73, r32-2=M76, r32-3=M75, r32-4=M78, r32-5=M84, r32-6=M86
-  // r32-7=M83, r32-8=M88, r32-9=M74, r32-10=M77, r32-11=M79, r32-12=M80
-  // r32-13=M81, r32-14=M82, r32-15=M87, r32-16=M85
-
-  const r16 = [
-    mk("r16-1", "r32-9", "r32-10"),  // M89: W(M74) vs W(M77) — E1/3rd vs I1/3rd
-    mk("r16-2", "r32-1", "r32-3"),   // M90: W(M73) vs W(M75) — A2/B2 vs F1/C2
-    mk("r16-3", "r32-2", "r32-4"),   // M91: W(M76) vs W(M78) — C1/F2 vs E2/I2
-    mk("r16-4", "r32-11","r32-12"),  // M92: W(M79) vs W(M80) — A1/3rd vs L1/3rd
-    mk("r16-5", "r32-7", "r32-5"),   // M93: W(M83) vs W(M84) — K2/L2 vs H1/J2
-    mk("r16-6", "r32-13","r32-14"),  // M94: W(M81) vs W(M82) — D1/3rd vs G1/3rd
-    mk("r16-7", "r32-6", "r32-8"),   // M95: W(M86) vs W(M88) — J1/H2 vs D2/G2
-    mk("r16-8", "r32-16","r32-15"),  // M96: W(M85) vs W(M87) — B1/3rd vs K1/3rd
-  ];
-
-  // QF pairings (official):
-  // M97=W(M89)vsW(M90) | M98=W(M91)vsW(M92) | M99=W(M93)vsW(M94) | M100=W(M95)vsW(M96)
-  const qf = [
-    mk("qf-1", "r16-1", "r16-2"),   // M97: W(M89) vs W(M90)
-    mk("qf-2", "r16-3", "r16-4"),   // M98: W(M91) vs W(M92)
-    mk("qf-3", "r16-5", "r16-6"),   // M99: W(M93) vs W(M94)
-    mk("qf-4", "r16-7", "r16-8"),   // M100: W(M95) vs W(M96)
-  ];
-
-  // SF: M101=W(M97)vsW(M98) | M102=W(M99)vsW(M100)
-  const sf = [
-    mk("sf-1", "qf-1", "qf-2"),    // M101: W(M97) vs W(M98)
-    mk("sf-2", "qf-3", "qf-4"),    // M102: W(M99) vs W(M100)
-  ];
-
-  const fin = [mk("final-1", "sf-1", "sf-2")];
-
-  const setKO=(mid,team,round)=>upd(pr=>{pr.knockout[round]=pr.knockout[round]||{};pr.knockout[round][mid]=team;});
-
-  const KOCard=({match,round})=>{
-    const picked=p.knockout?.[round]?.[match.id];
-    return(
-      <div style={{background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.15)",borderRadius:10,overflow:"hidden"}}>
-        {[match.home,match.away].map((team,idx)=>{
-          const isW=picked===team,isQ=team!=="?"&&team!=="3rd TBD"&&team!=="3rd place TBD"&&!isLocked();
-          return(<div key={idx} className={isQ?"ph":""} onClick={()=>isQ&&setKO(match.id,team,round)}
-            style={{padding:"9px 14px",display:"flex",alignItems:"center",gap:8,background:isW?"rgba(57,255,20,.12)":"transparent",borderBottom:idx===0?"1px solid rgba(255,255,255,.06)":"none",cursor:isQ?"pointer":"default",opacity:(team==="?"||team==="3rd TBD")?.3:1,transition:"background .15s"}}>
-            <span style={{fontSize:10,width:14}}>{isW?"✅":""}</span>
-            <span style={{fontSize:12,color:isW?"var(--green)":"var(--text)",fontWeight:isW?700:400,flex:1}}>{team}</span>
-          </div>);
-        })}
-      </div>
-    );
-  };
 
   const BonusOpt=({selected,onClick,children})=>(<div onClick={isLocked()?null:onClick} className={isLocked()?"":"ch"}
     style={{padding:"8px 12px",marginBottom:5,borderRadius:8,cursor:isLocked()?"default":"pointer",background:selected?"rgba(57,255,20,.15)":"rgba(23,45,105,.4)",border:selected?"1px solid var(--green)":"1px solid rgba(65,161,231,.15)",color:selected?"var(--green)":"var(--text)",fontWeight:selected?700:400,fontSize:13,transition:"all .15s"}}>
@@ -588,17 +600,17 @@ function PredictionsView({user}){
       {/* Step indicator */}
       <div style={{display:"flex",gap:0,marginBottom:24,background:"rgba(0,0,0,.3)",borderRadius:12,overflow:"hidden"}}>
         {steps.map((s,i)=>{
-          const done=(s.n===1&&step1Done)||(s.n===2&&step>=2)||(s.n===3&&step>=3);
+          const done=(s.n===1&&step1Done)||(s.n===2&&step>=2);
           const active=step===s.n;
           return(
             <button key={s.n} onClick={()=>{if(s.n===1||step1Done) setStep(s.n);}}
-              style={{flex:1,padding:"12px 8px",border:"none",borderRight:i<2?"1px solid rgba(255,255,255,.08)":"none",
+              style={{flex:1,padding:"12px 8px",border:"none",borderRight:i<1?"1px solid rgba(255,255,255,.08)":"none",
                 background:active?"linear-gradient(135deg,var(--blue),var(--azure))":"transparent",
                 color:active?"#fff":done?"var(--green)":"var(--muted)",fontWeight:600,fontSize:13,
                 cursor:(s.n===1||step1Done)?"pointer":"not-allowed",transition:"all .2s",
                 opacity:(s.n>1&&!step1Done&&!active)?.4:1}}>
-              <span style={{marginRight:6}}>{done&&!active?"✅":s.n===1?"⚽":s.n===2?"🏆":"🎯"}</span>
-              {s.n===1?"Groups & 3rds":s.n===2?"Knockout":"Bonus"}
+              <span style={{marginRight:6}}>{done&&!active?"✅":s.n===1?"⚽":"🎯"}</span>
+              {s.n===1?"⚽ Groups":s.n===2?"🎯 Bonus":""}
             </button>
           );
         })}
@@ -625,12 +637,15 @@ function PredictionsView({user}){
               <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:"var(--azure)",marginBottom:10}}>MATCHES — GROUP {grp}</div>
               {GROUP_MATCHES.filter(m=>m.group===grp).map(m=>{
                 const s=p.groupScores?.[m.id]||{},done=s.h!=null&&s.a!=null;
-                return(<div key={m.id} style={{background:done?"rgba(57,255,20,.05)":"rgba(23,45,105,.4)",border:done?"1px solid rgba(57,255,20,.2)":"1px solid rgba(65,161,231,.15)",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                return(<div key={m.id} style={{background:done?"rgba(57,255,20,.05)":"rgba(23,45,105,.4)",border:done?"1px solid rgba(57,255,20,.2)":"1px solid rgba(65,161,231,.15)",borderRadius:10,padding:"10px 14px",marginBottom:8}}>
+                  <div style={{fontSize:10,color:"var(--muted)",letterSpacing:1,marginBottom:5}}>{m.date} · {m.time}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
                   <span style={{flex:1,fontSize:12,textAlign:"right",color:"#ccc"}}>{m.home}</span>
                   <ScoreInp value={s.h} onChange={v=>upd(pr=>{pr.groupScores[m.id]=pr.groupScores[m.id]||{};pr.groupScores[m.id].h=v;})}/>
                   <span style={{color:"var(--muted)",fontSize:11}}>–</span>
                   <ScoreInp value={s.a} onChange={v=>upd(pr=>{pr.groupScores[m.id]=pr.groupScores[m.id]||{};pr.groupScores[m.id].a=v;})}/>
                   <span style={{flex:1,fontSize:12,color:"#ccc"}}>{m.away}</span>
+                  </div>
                 </div>);
               })}
             </div>
@@ -706,35 +721,8 @@ function PredictionsView({user}){
         </div>
       )}
 
-      {/* ═══ STEP 2: KNOCKOUT BRACKET ═══ */}
+      {/* ═══ STEP 2: BONUS ═══ */}
       {step===2&&(
-        <div>
-          <div style={{marginBottom:16,padding:"12px 16px",background:"rgba(65,161,231,.05)",border:"1px solid rgba(65,161,231,.15)",borderRadius:10,fontSize:12,color:"rgba(65,161,231,.8)"}}>
-            💡 Click the winning team to advance them to the next round.
-          </div>
-          {[{label:"ROUND OF 32",matches:r32,round:"r32",cols:4},{label:"ROUND OF 16",matches:r16,round:"r16",cols:4},{label:"QUARTER-FINALS",matches:qf,round:"qf",cols:2},{label:"SEMI-FINALS",matches:sf,round:"sf",cols:2},{label:"🏆 FINAL",matches:fin,round:"final",cols:1}].map(({label,matches,round,cols})=>(
-            <div key={round} style={{marginBottom:24}}>
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-                <div style={{flex:1,height:1,background:"rgba(65,161,231,.2)"}}/>
-                <span style={{fontFamily:"Anton,sans-serif",fontSize:13,letterSpacing:2,color:"var(--azure)"}}>{label}</span>
-                <div style={{flex:1,height:1,background:"rgba(65,161,231,.2)"}}/>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(cols,matches.length)},1fr)`,gap:8}}>
-                {matches.map(m=><KOCard key={m.id} match={m} round={round}/>)}
-              </div>
-            </div>
-          ))}
-          <div style={{textAlign:"center",padding:"20px 0"}}>
-            <button onClick={()=>{save();setStep(3);}}
-              style={{padding:"14px 48px",background:"linear-gradient(135deg,var(--blue),var(--azure))",border:"none",borderRadius:10,color:"#fff",fontWeight:700,fontSize:16,cursor:"pointer",letterSpacing:1,boxShadow:"0 4px 20px rgba(65,161,231,.3)"}}>
-              CONTINUE TO BONUS →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ═══ STEP 3: BONUS ═══ */}
-      {step===3&&(
         <div style={{display:"flex",flexDirection:"column",gap:20}}>
           <BonusCard icon="🏆" title="WORLD CHAMPION" sub="Which team will lift the trophy on July 19?" pts={POINTS.champion}>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
@@ -759,7 +747,7 @@ function PredictionsView({user}){
           </BonusCard>
           <div style={{textAlign:"center",padding:"10px 0"}}>
             <button onClick={save} disabled={saving||isLocked()}
-              style={{padding:"14px 48px",background:saved?"#1a5c1a":"linear-gradient(135deg,var(--blue),var(--azure))",border:"none",borderRadius:10,color:"#fff",fontWeight:700,fontSize:16,cursor:isLocked()?"not-allowed":"pointer",letterSpacing:1}}>
+              style={{padding:"14px 48px",background:isLocked()?"rgba(255,255,255,.1)":saved?"#1a5c1a":"linear-gradient(135deg,var(--blue),var(--azure))",border:isLocked()?"1px solid rgba(255,255,255,.1)":"none",borderRadius:10,color:isLocked()?"rgba(255,255,255,.3)":"#fff",fontWeight:700,fontSize:16,cursor:isLocked()?"not-allowed":"pointer",letterSpacing:1}}>
               {isLocked()?"🔒 LOCKED":saving?"...":saved?"✓ ALL SAVED !":"💾 SAVE ALL PREDICTIONS"}
             </button>
           </div>
@@ -770,7 +758,7 @@ function PredictionsView({user}){
 }
 
 // ─── ADMIN VIEW ────────────────────────────────────────────────────────────────
-function AdminView({onResultsChange}){
+function AdminView({onResultsChange, onSettingsChange, settings}){
   const [res,setRes]=useState(null);
   const [loading,setLoading]=useState(true);
   const [saving,setSaving]=useState(false);
@@ -779,53 +767,187 @@ function AdminView({onResultsChange}){
   const [grp,setGrp]=useState("A");
   const [users,setUsers]=useState([]);
   const [pronos,setPronos]=useState({});
+  const [expandedUser,setExpandedUser]=useState(null);
+  const [confirmDelete,setConfirmDelete]=useState(null);
+  const [deadlineInput,setDeadlineInput]=useState("");
+  const [deadlineSaved,setDeadlineSaved]=useState(false);
 
   useEffect(()=>{
     Promise.all([fbGetResults(),getDocs(collection(db,"users")),getDocs(collection(db,"pronostics"))]).then(([r,uSnap,pSnap])=>{
-      setRes(r||{groupScores:{},knockout:{r32:{},r16:{},qf:{},sf:{},final:{}},champion:"",topScorer:"",darkHorse:""});
+      setRes(r||{groupScores:{},champion:"",topScorer:"",darkHorse:""});
       setUsers(uSnap.docs.map(d=>d.data()).filter(u=>!u.isAdmin));
       const pm={};pSnap.docs.forEach(d=>{pm[d.id]=d.data();});setPronos(pm);setLoading(false);
     });
+    // Init deadline input from settings
+    if(settings?.customDeadline) setDeadlineInput(settings.customDeadline);
   },[]);
 
   const saveRes=async()=>{setSaving(true);await fbSetResults(res);setSaving(false);setSaved(true);onResultsChange&&onResultsChange(res);setTimeout(()=>setSaved(false),2000);};
   const updR=fn=>setRes(prev=>{const n=JSON.parse(JSON.stringify(prev));fn(n);return n;});
+
+  const deleteUser = async(userId) => {
+    try {
+      const {deleteDoc: dd, doc: dc} = await import("firebase/firestore");
+      await dd(dc(db,"users",userId));
+      await dd(dc(db,"pronostics",userId));
+      setUsers(prev=>prev.filter(u=>u.id!==userId));
+      setPronos(prev=>{const n={...prev};delete n[userId];return n;});
+      setConfirmDelete(null);
+    } catch(e){ console.error(e); }
+  };
+
+  const saveSettings = async(newSettings) => {
+    await setDoc(doc(db,"config","settings"), newSettings);
+    onSettingsChange&&onSettingsChange(newSettings);
+  };
+
+  const saveDeadline = async() => {
+    const newSettings = {...(settings||{}), customDeadline: deadlineInput};
+    await saveSettings(newSettings);
+    setDeadlineSaved(true);
+    setTimeout(()=>setDeadlineSaved(false),2000);
+  };
+
+  const toggleLeaderboard = async() => {
+    const newSettings = {...(settings||{}), hideLeaderboard: !settings?.hideLeaderboard};
+    await saveSettings(newSettings);
+  };
+
   if(loading) return <Spinner/>;
   const scoreboard=users.map(u=>({...u,pts:calcPoints(pronos[u.id],res),submitted:!!pronos[u.id]})).sort((a,b)=>b.pts-a.pts);
 
   return(
     <div>
-      <STitle icon="⚙️" title="ADMIN PANEL" sub="Enter real results to update the live leaderboard"/>
-      <div style={{marginBottom:20,padding:"10px 14px",background:"rgba(255,80,80,.08)",border:"1px solid rgba(255,80,80,.2)",borderRadius:8,fontSize:12,color:"#ff8888"}}>🔐 Restricted area · AESMSL Co-presidents only</div>
+      <STitle icon="⚙️" title="ADMIN PANEL" sub="AESMSL · Co-presidents only"/>
+      <div style={{marginBottom:20,padding:"10px 14px",background:"rgba(255,80,80,.08)",border:"1px solid rgba(255,80,80,.2)",borderRadius:8,fontSize:12,color:"#ff8888"}}>
+        🔐 Restricted area · Sports Management School Lausanne
+      </div>
+
+      {/* Tabs */}
       <div style={{display:"flex",gap:4,marginBottom:20,background:"rgba(0,0,0,.3)",borderRadius:10,padding:4,flexWrap:"wrap"}}>
-        {[{id:"stats",l:"📊 Dashboard"},{id:"groups",l:"⚽ Results"},{id:"bracket",l:"🏆 KO"},{id:"bonus",l:"🎯 Bonus"}].map(t=>(
+        {[{id:"stats",l:"📊 Dashboard"},{id:"participants",l:"👥 Participants"},{id:"groups",l:"⚽ Results"},{id:"bonus",l:"🎯 Bonus"},{id:"settings",l:"⚙️ Settings"}].map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)}
-            style={{flex:1,minWidth:80,padding:"9px 0",border:"none",borderRadius:7,background:tab===t.id?"rgba(255,80,80,.25)":"transparent",color:tab===t.id?"#ff8888":"var(--muted)",fontWeight:600,transition:"all .2s"}}>{t.l}</button>
+            style={{flex:1,minWidth:80,padding:"9px 0",border:"none",borderRadius:7,background:tab===t.id?"rgba(255,80,80,.25)":"transparent",color:tab===t.id?"#ff8888":"var(--muted)",fontWeight:600,transition:"all .2s"}}>
+            {t.l}
+          </button>
         ))}
       </div>
+
+      {/* DASHBOARD */}
       {tab==="stats"&&(
         <div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:20}}>
             {[{l:"Registered",v:users.length,i:"👥",c:"var(--azure)"},{l:"Submitted",v:users.filter(u=>!!pronos[u.id]).length,i:"📝",c:"var(--green)"},{l:"Top score",v:scoreboard[0]?.pts||0,i:"⭐",c:"var(--purple)"}].map(({l,v,i,c})=>(
               <div key={l} style={{background:"rgba(23,45,105,.6)",border:`1px solid ${c}33`,borderRadius:12,padding:16,textAlign:"center"}}>
-                <div style={{fontSize:22,marginBottom:4}}>{i}</div><div style={{fontFamily:"Anton,sans-serif",fontSize:26,color:c}}>{v}</div>
+                <div style={{fontSize:22,marginBottom:4}}>{i}</div>
+                <div style={{fontFamily:"Anton,sans-serif",fontSize:26,color:c}}>{v}</div>
                 <div style={{fontSize:10,color:"var(--muted)",letterSpacing:1}}>{l.toUpperCase()}</div>
               </div>
             ))}
           </div>
+          {/* Quick settings toggles */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20}}>
+            <div style={{background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.2)",borderRadius:12,padding:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:14}}>👁️ Leaderboard visible</div>
+                <div style={{fontSize:11,color:"var(--muted)",marginTop:3}}>Participants can see the ranking</div>
+              </div>
+              <div onClick={toggleLeaderboard} style={{width:44,height:24,borderRadius:12,background:settings?.hideLeaderboard?"rgba(255,80,80,.3)":"rgba(57,255,20,.3)",border:settings?.hideLeaderboard?"1px solid #ff8888":"1px solid var(--green)",cursor:"pointer",position:"relative",transition:"all .3s"}}>
+                <div style={{width:18,height:18,borderRadius:"50%",background:settings?.hideLeaderboard?"#ff8888":"var(--green)",position:"absolute",top:2,left:settings?.hideLeaderboard?2:22,transition:"left .3s"}}/>
+              </div>
+            </div>
+            <div style={{background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.2)",borderRadius:12,padding:16}}>
+              <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>⏰ Current deadline</div>
+              <div style={{fontSize:12,color:settings?.customDeadline?"var(--green)":"var(--azure)"}}>
+                {settings?.customDeadline ? new Date(settings.customDeadline).toLocaleString('en-CH',{timeZone:'Europe/Zurich',dateStyle:'short',timeStyle:'short'}) : "Jun 11, 2026 18:00 (default)"}
+              </div>
+            </div>
+          </div>
+          {/* Live leaderboard */}
           <div style={{background:"rgba(23,45,105,.5)",border:"1px solid rgba(65,161,231,.15)",borderRadius:12,overflow:"hidden"}}>
             <div style={{padding:"12px 16px",borderBottom:"1px solid rgba(65,161,231,.15)",fontFamily:"Anton,sans-serif",fontSize:14,letterSpacing:2,color:"var(--azure)"}}>LIVE LEADERBOARD</div>
             {scoreboard.length===0&&<div style={{padding:30,textAlign:"center",color:"var(--muted)"}}>No participants yet</div>}
             {scoreboard.map((u,i)=>(
               <div key={u.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",borderBottom:i<scoreboard.length-1?"1px solid rgba(255,255,255,.04)":"none"}}>
                 <span style={{fontFamily:"Anton,sans-serif",fontSize:18,color:i===0?"#ffd700":i===1?"#c0c0c0":i===2?"#cd7f32":"rgba(255,255,255,.2)",minWidth:28}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}</span>
-                <div style={{flex:1}}><div style={{fontWeight:600}}>{u.prenom} {u.nom}</div><div style={{fontSize:11,color:u.submitted?"var(--green)":"#ff8c42"}}>{u.submitted?"✓ Submitted":"⏳ Pending"}</div></div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:600}}>{u.prenom} {u.nom}</div>
+                  <div style={{fontSize:11,color:"var(--muted)"}}>{u.email}</div>
+                  <div style={{fontSize:11,color:u.submitted?"var(--green)":"#ff8c42"}}>{u.submitted?"✓ Submitted":"⏳ Pending"}</div>
+                </div>
                 <div style={{fontFamily:"Anton,sans-serif",fontSize:22,color:"var(--azure)"}}>{u.pts} pts</div>
               </div>
             ))}
           </div>
         </div>
       )}
+
+      {/* PARTICIPANTS */}
+      {tab==="participants"&&(
+        <div>
+          <div style={{fontSize:13,color:"var(--muted)",marginBottom:16}}>{users.length} registered participants</div>
+          {confirmDelete&&(
+            <div style={{marginBottom:16,padding:"14px 16px",background:"rgba(255,80,80,.15)",border:"1px solid rgba(255,80,80,.4)",borderRadius:10}}>
+              <div style={{fontWeight:700,color:"#ff8888",marginBottom:8}}>⚠️ Delete {confirmDelete.name}?</div>
+              <div style={{fontSize:12,color:"var(--muted)",marginBottom:12}}>This will permanently delete their account and predictions.</div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>deleteUser(confirmDelete.id)} style={{padding:"8px 16px",background:"rgba(255,80,80,.3)",border:"1px solid #ff8888",borderRadius:7,color:"#ff8888",fontWeight:700,fontSize:13}}>DELETE</button>
+                <button onClick={()=>setConfirmDelete(null)} style={{padding:"8px 16px",background:"rgba(255,255,255,.05)",border:"1px solid rgba(255,255,255,.1)",borderRadius:7,color:"var(--muted)",fontSize:13}}>Cancel</button>
+              </div>
+            </div>
+          )}
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {scoreboard.map((u,i)=>{
+              const pr=pronos[u.id];
+              const isExpanded=expandedUser===u.id;
+              const champ=pr?.champion==="__other__"?pr?.championOther:pr?.champion;
+              const scorer=pr?.topScorer==="__other__"?pr?.topScorerOther:pr?.topScorer;
+              return(
+                <div key={u.id} style={{background:"rgba(23,45,105,.5)",border:"1px solid rgba(65,161,231,.15)",borderRadius:12,overflow:"hidden"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",cursor:"pointer"}} onClick={()=>setExpandedUser(isExpanded?null:u.id)}>
+                    <span style={{fontFamily:"Anton,sans-serif",fontSize:16,color:i===0?"#ffd700":i===1?"#c0c0c0":i===2?"#cd7f32":"rgba(255,255,255,.2)",minWidth:24}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:14}}>{u.prenom} {u.nom}</div>
+                      <div style={{fontSize:11,color:"var(--muted)"}}>{u.email}</div>
+                    </div>
+                    <div style={{textAlign:"right",marginRight:8}}>
+                      <div style={{fontFamily:"Anton,sans-serif",fontSize:18,color:"var(--azure)"}}>{u.pts} pts</div>
+                      <div style={{fontSize:10,color:u.submitted?"var(--green)":"#ff8c42"}}>{u.submitted?"✓ Submitted":"⏳ Pending"}</div>
+                    </div>
+                    <span style={{color:"var(--muted)",fontSize:12}}>{isExpanded?"▲":"▼"}</span>
+                  </div>
+                  {isExpanded&&(
+                    <div style={{padding:"0 16px 14px",borderTop:"1px solid rgba(65,161,231,.1)"}}>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginTop:12,marginBottom:12}}>
+                        <div style={{background:"rgba(255,255,255,.04)",borderRadius:8,padding:"10px 12px"}}>
+                          <div style={{fontSize:10,color:"var(--muted)",marginBottom:4}}>🏆 CHAMPION</div>
+                          <div style={{fontSize:12,color:"var(--text)",fontWeight:600}}>{champ||"—"}</div>
+                        </div>
+                        <div style={{background:"rgba(255,255,255,.04)",borderRadius:8,padding:"10px 12px"}}>
+                          <div style={{fontSize:10,color:"var(--muted)",marginBottom:4}}>⚡ TOP SCORER</div>
+                          <div style={{fontSize:12,color:"var(--text)",fontWeight:600}}>{scorer||"—"}</div>
+                        </div>
+                        <div style={{background:"rgba(255,255,255,.04)",borderRadius:8,padding:"10px 12px"}}>
+                          <div style={{fontSize:10,color:"var(--muted)",marginBottom:4}}>🐴 DARK HORSE</div>
+                          <div style={{fontSize:12,color:"var(--text)",fontWeight:600}}>{pr?.darkHorse||"—"}</div>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",justifyContent:"flex-end"}}>
+                        <button onClick={e=>{e.stopPropagation();setConfirmDelete({id:u.id,name:`${u.prenom} ${u.nom}`});}}
+                          style={{padding:"7px 14px",background:"rgba(255,80,80,.15)",border:"1px solid rgba(255,80,80,.3)",borderRadius:7,color:"#ff8888",fontSize:12,fontWeight:600}}>
+                          🗑️ Delete account
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* RESULTS */}
       {tab==="groups"&&(
         <div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
@@ -834,50 +956,85 @@ function AdminView({onResultsChange}){
           </div>
           {GROUP_MATCHES.filter(m=>m.group===grp).map(m=>{
             const s=res.groupScores?.[m.id]||{};
-            return(<div key={m.id} style={{background:"rgba(23,45,105,.4)",border:"1px solid rgba(65,161,231,.15)",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-              <span style={{flex:1,fontSize:12,textAlign:"right",color:"#ccc"}}>{m.home}</span>
-              <ScoreInp value={s.h} onChange={v=>updR(r=>{r.groupScores[m.id]=r.groupScores[m.id]||{};r.groupScores[m.id].h=v;})} disabled={false}/>
-              <span style={{color:"var(--muted)",fontSize:11}}>–</span>
-              <ScoreInp value={s.a} onChange={v=>updR(r=>{r.groupScores[m.id]=r.groupScores[m.id]||{};r.groupScores[m.id].a=v;})} disabled={false}/>
-              <span style={{flex:1,fontSize:12,color:"#ccc"}}>{m.away}</span>
-            </div>);
+            return(
+              <div key={m.id} style={{background:"rgba(23,45,105,.4)",border:"1px solid rgba(65,161,231,.15)",borderRadius:10,padding:"10px 14px",marginBottom:8}}>
+                <div style={{fontSize:10,color:"var(--muted)",letterSpacing:1,marginBottom:5}}>{m.date} · {m.time}</div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{flex:1,fontSize:12,textAlign:"right",color:"#ccc"}}>{m.home}</span>
+                <ScoreInp value={s.h} onChange={v=>updR(r=>{r.groupScores[m.id]=r.groupScores[m.id]||{};r.groupScores[m.id].h=v;})} disabled={false}/>
+                <span style={{color:"var(--muted)",fontSize:11}}>–</span>
+                <ScoreInp value={s.a} onChange={v=>updR(r=>{r.groupScores[m.id]=r.groupScores[m.id]||{};r.groupScores[m.id].a=v;})} disabled={false}/>
+                <span style={{flex:1,fontSize:12,color:"#ccc"}}>{m.away}</span>
+                </div>
+              </div>
+            );
           })}
         </div>
       )}
-      {tab==="bracket"&&(
-        <div>
-          {[{label:"R32",prefix:"r32",count:16},{label:"R16",prefix:"r16",count:8},{label:"QF",prefix:"qf",count:4},{label:"SF",prefix:"sf",count:2},{label:"🏆 FINAL",prefix:"final",count:1}].map(({label,prefix,count})=>(
-            <div key={prefix} style={{marginBottom:20}}>
-              <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:"#ff8888",marginBottom:8}}>WINNERS — {label}</div>
-              <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(4,count)},1fr)`,gap:8}}>
-                {Array.from({length:count},(_,i)=>{const id=`${prefix}-${i+1}`;return(
-                  <div key={id}><div style={{fontSize:10,color:"var(--muted)",marginBottom:3}}>{id}</div>
-                    <input value={res.knockout?.[prefix]?.[id]||""} onChange={e=>updR(r=>{r.knockout[prefix]=r.knockout[prefix]||{};r.knockout[prefix][id]=e.target.value;})}
-                      style={{width:"100%",padding:"8px 10px",background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.25)",borderRadius:7,color:"var(--text)",fontSize:12}} placeholder="Winning team"/>
-                  </div>);
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+
+      {/* BONUS RESULTS */}
       {tab==="bonus"&&(
         <div style={{display:"flex",flexDirection:"column",gap:16}}>
           {[["champion","🏆 World Champion"],["topScorer","⚡ Top Scorer"],["darkHorse","🐴 Dark Horse"]].map(([k,label])=>(
             <div key={k}>
               <label style={{display:"block",fontSize:11,color:"var(--azure)",fontWeight:700,letterSpacing:1,marginBottom:6,textTransform:"uppercase"}}>{label}</label>
               <input value={res[k]||""} onChange={e=>updR(r=>{r[k]=e.target.value;})}
-                style={{width:"100%",padding:"11px 14px",background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.25)",borderRadius:8,color:"var(--text)",fontSize:14}} placeholder={`Enter ${label.toLowerCase()}...`}/>
+                style={{width:"100%",padding:"11px 14px",background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.25)",borderRadius:8,color:"var(--text)",fontSize:14}}
+                placeholder={`Enter ${label.toLowerCase()}...`}/>
             </div>
           ))}
         </div>
       )}
-      <div style={{marginTop:24}}>
-        <button onClick={saveRes}
-          style={{padding:"13px 32px",background:saved?"#1a5c1a":"rgba(255,80,80,.2)",border:saved?"none":"1px solid rgba(255,80,80,.4)",borderRadius:10,color:saved?"#fff":"#ff8888",fontFamily:"Anton,sans-serif",fontSize:16,letterSpacing:2}}>
-          {saved?"✓ RESULTS SAVED":"💾 SAVE RESULTS"}
-        </button>
-      </div>
+
+      {/* SETTINGS */}
+      {tab==="settings"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:20}}>
+          {/* Leaderboard visibility */}
+          <div style={{background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.2)",borderRadius:12,padding:20}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <div>
+                <div style={{fontFamily:"Anton,sans-serif",fontSize:16,letterSpacing:2,color:"var(--azure)"}}>👁️ LEADERBOARD VISIBILITY</div>
+                <div style={{fontSize:12,color:"var(--muted)",marginTop:4}}>
+                  {settings?.hideLeaderboard?"🔴 Hidden — participants see a placeholder":"🟢 Visible — participants see the full ranking"}
+                </div>
+              </div>
+              <div onClick={toggleLeaderboard} style={{width:52,height:28,borderRadius:14,background:settings?.hideLeaderboard?"rgba(255,80,80,.3)":"rgba(57,255,20,.3)",border:settings?.hideLeaderboard?"1px solid #ff8888":"1px solid var(--green)",cursor:"pointer",position:"relative",transition:"all .3s",flexShrink:0}}>
+                <div style={{width:22,height:22,borderRadius:"50%",background:settings?.hideLeaderboard?"#ff8888":"var(--green)",position:"absolute",top:2,left:settings?.hideLeaderboard?2:26,transition:"left .3s"}}/>
+              </div>
+            </div>
+            <div style={{fontSize:11,color:"var(--muted)",padding:"8px 12px",background:"rgba(255,255,255,.03)",borderRadius:8,marginTop:8}}>
+              💡 Hide the leaderboard during early stages to keep suspense. Reveal it once results start coming in.
+            </div>
+          </div>
+
+          {/* Custom deadline */}
+          <div style={{background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.2)",borderRadius:12,padding:20}}>
+            <div style={{fontFamily:"Anton,sans-serif",fontSize:16,letterSpacing:2,color:"var(--azure)",marginBottom:4}}>⏰ CUSTOM DEADLINE</div>
+            <div style={{fontSize:12,color:"var(--muted)",marginBottom:12}}>Override the default deadline (Jun 11, 2026 18:00 Swiss time). Format: YYYY-MM-DDTHH:MM</div>
+            <div style={{display:"flex",gap:10,alignItems:"center"}}>
+              <input type="datetime-local" value={deadlineInput} onChange={e=>setDeadlineInput(e.target.value)}
+                style={{flex:1,padding:"11px 14px",background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.25)",borderRadius:8,color:"var(--text)",fontSize:14}}/>
+              <button onClick={saveDeadline}
+                style={{padding:"11px 20px",background:deadlineSaved?"#1a5c1a":"linear-gradient(135deg,var(--blue),var(--azure))",border:"none",borderRadius:8,color:"#fff",fontWeight:700,whiteSpace:"nowrap"}}>
+                {deadlineSaved?"✓ Saved":"💾 Save"}
+              </button>
+            </div>
+            <button onClick={async()=>{const ns={...(settings||{})};delete ns.customDeadline;await saveSettings(ns);setDeadlineInput("");}}
+              style={{marginTop:8,padding:"7px 14px",background:"transparent",border:"1px solid rgba(255,255,255,.1)",borderRadius:7,color:"var(--muted)",fontSize:12}}>
+              Reset to default (Jun 11 18:00)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {(tab==="groups"||tab==="bonus")&&(
+        <div style={{marginTop:24}}>
+          <button onClick={saveRes}
+            style={{padding:"13px 32px",background:saved?"#1a5c1a":"rgba(255,80,80,.2)",border:saved?"none":"1px solid rgba(255,80,80,.4)",borderRadius:10,color:saved?"#fff":"#ff8888",fontFamily:"Anton,sans-serif",fontSize:16,letterSpacing:2}}>
+            {saved?"✓ RESULTS SAVED":"💾 SAVE RESULTS"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -889,7 +1046,24 @@ export default function App(){
   const [results,setResults]=useState(null);
   const [loading,setLoading]=useState(true);
 
-  useEffect(()=>{fbGetResults().then(r=>{if(r)setResults(r);setLoading(false);});},[]);
+  const [settings,setSettings]=useState(null);
+  const handleSettingsChange = (s) => {
+    setSettings(s);
+    if(s?.customDeadline) _deadlineOverride=new Date(s.customDeadline);
+    else _deadlineOverride=null;
+  };
+
+  useEffect(()=>{
+    Promise.all([fbGetResults(), getDoc(doc(db,"config","settings"))]).then(([r,sSnap])=>{
+      if(r) setResults(r);
+      if(sSnap.exists()){
+        const s=sSnap.data();
+        setSettings(s);
+        if(s.customDeadline) _deadlineOverride=new Date(s.customDeadline);
+      }
+      setLoading(false);
+    }).catch(()=>setLoading(false));
+  },[]);
 
   if(loading) return(<div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center"}}><G/><div style={{fontFamily:"Anton,sans-serif",fontSize:28,color:"var(--azure)",letterSpacing:4}}>⚽ LOADING...</div></div>);
   if(!user) return <AuthView onLogin={u=>{setUser(u);setView(u.isAdmin?"admin":"leaderboard");}}/>;
@@ -923,9 +1097,9 @@ export default function App(){
           </div>
         </div>
         <main style={{maxWidth:1100,margin:"0 auto",padding:"24px 20px"}}>
-          {view==="leaderboard"&&<Leaderboard uid={user.id} results={results}/>}
+          {view==="leaderboard"&&<Leaderboard uid={user.id} results={results} settings={settings}/>}
           {view==="predictions"&&<PredictionsView user={user}/>}
-          {view==="admin"&&user.isAdmin&&<AdminView onResultsChange={setResults}/>}
+          {view==="admin"&&user.isAdmin&&<AdminView onResultsChange={setResults} onSettingsChange={handleSettingsChange} settings={settings}/>}
         </main>
         <footer style={{borderTop:"1px solid rgba(65,161,231,.1)",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
           <img src={LOGO_P} alt="AESMSL" style={{height:28,opacity:.4}}/>
