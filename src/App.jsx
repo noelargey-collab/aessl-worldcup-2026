@@ -567,9 +567,19 @@ function PredictionsView({user}){
 
       {/* Lock / countdown banner */}
       {isLocked()?(
-        <div style={{marginBottom:16,padding:"14px 18px",background:"rgba(255,80,80,.1)",border:"1px solid rgba(255,80,80,.3)",borderRadius:10,display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:20}}>🔒</span>
-          <div><div style={{fontWeight:700,color:"#ff8888",fontSize:14}}>Predictions locked</div><div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>The competition has started.</div></div>
+        <div style={{marginBottom:16,padding:"16px 20px",background:"linear-gradient(135deg,rgba(255,80,80,.12),rgba(255,80,80,.06))",border:"1px solid rgba(255,80,80,.35)",borderRadius:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:p.savedAt?0:10}}>
+            <span style={{fontSize:22}}>🔒</span>
+            <div>
+              <div style={{fontWeight:700,color:"#ff8888",fontSize:15}}>Predictions are now closed</div>
+              <div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>The competition started on June 11 — good luck to everyone who submitted! 🏆</div>
+            </div>
+          </div>
+          {!p.savedAt&&(
+            <div style={{marginTop:10,padding:"10px 14px",background:"rgba(255,80,80,.1)",borderRadius:8,fontSize:12,color:"#ff8888",border:"1px solid rgba(255,80,80,.2)"}}>
+              ⏰ You missed the deadline — predictions were due before June 11 at 6:00 PM Swiss time.
+            </div>
+          )}
         </div>
       ):timeLeft()&&(
         <div style={{marginBottom:16,padding:"12px 16px",background:"rgba(57,255,20,.06)",border:"1px solid rgba(57,255,20,.2)",borderRadius:10,display:"flex",alignItems:"center",gap:10}}>
@@ -1020,6 +1030,68 @@ function AdminView({onResultsChange, onSettingsChange, settings}){
   );
 }
 
+
+// ─── HOW TO PLAY ─────────────────────────────────────────────────────────────
+function HowToPlay(){
+  return(
+    <div>
+      <STitle icon="📖" title="HOW TO PLAY" sub="Everything you need to know about the predictions contest"/>
+      <div style={{marginBottom:16,padding:20,background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.2)",borderRadius:14}}>
+        <div style={{fontFamily:"Anton,sans-serif",fontSize:16,letterSpacing:2,color:"var(--azure)",marginBottom:10}}>🏆 WHAT IS IT?</div>
+        <div style={{fontSize:13,color:"var(--text)",lineHeight:1.7}}>The AESMSL World Cup 2026 Predictions Contest lets you predict all 48 group stage matches plus bonus predictions. The more accurate your predictions, the more points you earn. Top 3 from SMS and top 3 from MSI will be rewarded!</div>
+      </div>
+      <div style={{marginBottom:16,padding:20,background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.2)",borderRadius:14}}>
+        <div style={{fontFamily:"Anton,sans-serif",fontSize:16,letterSpacing:2,color:"var(--azure)",marginBottom:12}}>📋 HOW TO PARTICIPATE</div>
+        {[
+          {n:"1",icon:"👤",title:"Create your account",desc:"Sign up with your first name, last name and email. Choose a secure password (min. 6 characters)."},
+          {n:"2",icon:"⚽",title:"Fill in your group stage predictions",desc:"Go to My Predictions → Groups tab. Enter your predicted score for each of the 72 group stage matches using the A→L tabs."},
+          {n:"3",icon:"🎯",title:"Add your bonus predictions",desc:"Go to the Bonus tab. Pick your World Champion, Top Scorer and Dark Horse team for extra points!"},
+          {n:"4",icon:"💾",title:"Save before the deadline!",desc:"Click SAVE before June 11, 2026 at 6:00 PM Swiss time. After that, predictions are locked permanently."},
+          {n:"5",icon:"📊",title:"Follow the competition",desc:"Check your personal score in the Leaderboard tab during the tournament. The full ranking will be revealed by the admins!"},
+        ].map(({n,icon,title,desc})=>(
+          <div key={n} style={{display:"flex",gap:14,marginBottom:14,alignItems:"flex-start"}}>
+            <div style={{width:34,height:34,borderRadius:"50%",background:"linear-gradient(135deg,var(--blue),var(--azure))",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"Anton,sans-serif",fontSize:15,color:"#fff",flexShrink:0}}>{n}</div>
+            <div><div style={{fontWeight:700,fontSize:13,marginBottom:3}}>{icon} {title}</div><div style={{fontSize:12,color:"var(--muted)",lineHeight:1.6}}>{desc}</div></div>
+          </div>
+        ))}
+      </div>
+      <div style={{marginBottom:16,padding:20,background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.2)",borderRadius:14}}>
+        <div style={{fontFamily:"Anton,sans-serif",fontSize:16,letterSpacing:2,color:"var(--azure)",marginBottom:12}}>🎯 SCORING SYSTEM</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {[
+            {pts:5,label:"Exact score",desc:"You predicted the exact scoreline (e.g. France 2-1 Senegal)",color:"var(--green)"},
+            {pts:2,label:"Correct result",desc:"You got the winner right (or draw) but not the exact score",color:"var(--azure)"},
+            {pts:10,label:"World Champion",desc:"You correctly predicted the tournament winner",color:"#ffd700"},
+            {pts:8,label:"Top Scorer",desc:"You correctly predicted the player with the most goals",color:"#ff8c42"},
+            {pts:5,label:"Dark Horse",desc:"Your outsider team reached the quarter-finals or beyond",color:"var(--purple)"},
+          ].map(({pts,label,desc,color})=>(
+            <div key={label} style={{display:"flex",alignItems:"center",gap:14,padding:"12px 14px",background:"rgba(255,255,255,.04)",borderRadius:10,border:"1px solid rgba(255,255,255,.06)"}}>
+              <div style={{fontFamily:"Anton,sans-serif",fontSize:24,color,minWidth:48,textAlign:"center"}}>+{pts}</div>
+              <div><div style={{fontWeight:700,fontSize:13}}>{label}</div><div style={{fontSize:11,color:"var(--muted)",marginTop:2}}>{desc}</div></div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{marginBottom:16,padding:20,background:"rgba(23,45,105,.6)",border:"1px solid rgba(65,161,231,.2)",borderRadius:14}}>
+        <div style={{fontFamily:"Anton,sans-serif",fontSize:16,letterSpacing:2,color:"var(--azure)",marginBottom:12}}>💡 TIPS & RULES</div>
+        {["You can update your predictions as many times as you want before the deadline.","Always click 💾 SAVE after making changes — unsaved predictions won't count!","The Dark Horse must be an outsider team — favorites like France, Brazil or Spain are not in the list.","For the Top Scorer, if your player is not in the list, use the free text field.","Predictions are locked on June 11 at 6:00 PM Swiss time, no exceptions.","The leaderboard shows your personal score during the competition. Full ranking revealed at the end.","Top 3 from SMS and top 3 from MSI will be rewarded separately 🏆"].map((tip,i)=>(
+          <div key={i} style={{display:"flex",gap:10,marginBottom:8,alignItems:"flex-start"}}>
+            <span style={{color:"var(--green)",flexShrink:0}}>→</span>
+            <span style={{fontSize:12,color:"var(--muted)",lineHeight:1.6}}>{tip}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{padding:16,background:"rgba(57,255,20,.07)",border:"1px solid rgba(57,255,20,.25)",borderRadius:12,display:"flex",alignItems:"center",gap:12}}>
+        <span style={{fontSize:24}}>⏰</span>
+        <div>
+          <div style={{fontWeight:700,color:"var(--green)",fontSize:14}}>Deadline: June 11, 2026 at 6:00 PM Swiss time</div>
+          <div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>Don't wait until the last minute — save your predictions early!</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App(){
   const [user,setUser]=useState(null);
@@ -1049,7 +1121,7 @@ export default function App(){
   if(loading) return(<div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",alignItems:"center",justifyContent:"center"}}><G/><div style={{fontFamily:"Anton,sans-serif",fontSize:28,color:"var(--azure)",letterSpacing:4}}>⚽ LOADING...</div></div>);
   if(!user) return <AuthView onLogin={u=>{setUser(u);setView(u.isAdmin?"admin":"leaderboard");}}/>;
 
-  const navItems=[{id:"leaderboard",icon:"🏅",label:"Leaderboard"},{id:"predictions",icon:"📝",label:"Predictions"},...(user.isAdmin?[{id:"admin",icon:"⚙️",label:"Admin"}]:[])];
+  const navItems=[{id:"leaderboard",icon:"🏅",label:"Leaderboard"},{id:"predictions",icon:"📝",label:"Predictions"},{id:"howtoplay",icon:"📖",label:"How to play"},...(user.isAdmin?[{id:"admin",icon:"⚙️",label:"Admin"}]:[])];
 
   return(
     <>
@@ -1080,6 +1152,7 @@ export default function App(){
         <main style={{maxWidth:1100,margin:"0 auto",padding:"24px 20px"}}>
           {view==="leaderboard"&&<Leaderboard uid={user.id} results={results} settings={settings}/>}
           {view==="predictions"&&<PredictionsView user={user}/>}
+          {view==="howtoplay"&&<HowToPlay/>}
           {view==="admin"&&user.isAdmin&&<AdminView onResultsChange={setResults} onSettingsChange={handleSettingsChange} settings={settings}/>}
         </main>
         <footer style={{borderTop:"1px solid rgba(65,161,231,.1)",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
